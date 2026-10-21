@@ -178,6 +178,7 @@ Covered scenarios:
 - repeated runs (idempotency)
 - equally spaced rows for long jobs
 - cleanup script
+- magenta cut separation (page and layer mode, spot colour, tolerance)
 
 ## 7. Adding a new OPOS variant
 
@@ -187,12 +188,42 @@ Covered scenarios:
 3. Run `python3 tools/build.py` and `node tests/mock_coreldraw.js`.
 4. Update the tables in `README.md` and `docs/OPOS-marka-yerlesimi.md`.
 
-## 8. Limitations
+## 8. Magenta cut separation
+
+`src/kesim-ayir.js` → `scripts/Summa-Kesim-Ayir.js`. It matches colours in the
+CorelDRAW object model:
+
+- Fill: `Shape.Fill.Type === 1` (`cdrUniformFill`) and
+  `Fill.UniformColor.CMYKCyan/CMYKMagenta/CMYKYellow/CMYKBlack` (0–100) within
+  `tolerans` of `kesimCmyk`.
+- Outline: `Shape.Outline.Type !== 0` and `Outline.Color` matched the same way.
+- Spot colour: if `Color.IsSpot` and `Color.SpotColorName` / `Color.Name`
+  contains one of `spotAdlari`, it is treated as a cut colour.
+- A mixed object (design fill + magenta outline) is skipped so the print content
+  is not lost.
+- Groups: if every leaf is a cut object the group is moved; if the colours are
+  mixed, it is skipped with a warning.
+
+Moving:
+
+- `yeniSayfa: true` → `Document.AddPagesEx(1, W, H)` creates a page of the same
+  size, `Page.CreateLayer("Kesim")` creates the layer, then
+  `Shape.MoveToLayer(layer)` moves the objects.
+- `yeniSayfa: false` → same page, `Kesim` layer.
+- After `MoveToLayer`, any `PositionX/Y` difference is corrected with
+  `Shape.Move(dx, dy)`, so the cut lines keep the exact coordinates of the print
+  page.
+
+## 9. Limitations
 
 - Only the active page and active selection are processed.
 - Content on the master page does not move when the page grows.
 - The page is only grown; it is never shrunk to the selection.
 - There is no UI other than `alert`.
 - No barcode / job number / automatic cut-file generation.
+- Magenta pixels inside bitmaps cannot be separated; only vector fill/outline
+  colours are inspected.
+- Mixed-colour objects inside groups are not separated automatically; ungroup
+  first.
 - It is not a byte-for-byte copy of the Windows plug-in; mark size and spacing
   are configurable.

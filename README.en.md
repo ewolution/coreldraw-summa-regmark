@@ -76,6 +76,7 @@ For a manual install, copy the `.js` files from `scripts/` into that folder.
 | `Summa-OPOS-X.js` | Cutter in OPOS **X** mode |
 | `Summa-OPOS-XY.js` | Cutter in OPOS **XY** mode |
 | `Summa-OPOS-XY2.js` | Cutter in OPOS **XY2** mode |
+| `Summa-Kesim-Ayir.js` | Separate magenta cut lines |
 | `Summa-Regmark-Kaldir.js` | Remove the marks/layer |
 | `Summa-Test.js` | API/selection diagnostic |
 
@@ -159,6 +160,44 @@ Detailed layout, cutter settings and references:
 Code and API details:
 **[docs/technical-details.en.md](docs/technical-details.en.md)**
 
+## Separating magenta cut lines
+
+`Summa-Kesim-Ayir.js` finds objects painted with exact **CMYK 0/100/0/0** (or a
+spot colour named `Cut`, `Kesim`, `Magenta`, `Kiss-cut`, `Thru-cut`) and
+separates them.
+
+```js
+var AYAR = {
+  kesimCmyk: [0, 100, 0, 0], // C, M, Y, K (0-100)
+  tolerans: 0.5,             // colour tolerance
+  spotAdlari: ["cut", "kesim", "magenta", "kiss-cut", "thru-cut"],
+  yeniSayfa: true,           // true: new page, false: "Kesim" layer on the same page
+  kesimKatmani: "Kesim"
+};
+```
+
+- `yeniSayfa: true` (default): creates a **new page** of the same size and moves
+  the cut lines there. Page 1 = print, page 2 = cut.
+- `yeniSayfa: false`: moves them to a **`Kesim` layer** on the same page. Hide
+  that layer for the print PDF and hide the design layers for the cut PDF.
+
+### Workflow (new-page mode)
+
+1. Run `Summa-Kesim-Ayir`.
+2. Go to page 1 and run `Summa-OPOS-*` **without a selection**.
+3. Go to page 2 and run the same `Summa-OPOS-*` **without a selection**.
+   Both pages grow by the same amount, so the coordinates stay aligned.
+4. Export page 1 as the print PDF and page 2 as the cut PDF.
+
+### Limitations
+
+- **Ungroup first.** If a group contains a mix of colours, the script skips it.
+- Magenta pixels inside **bitmaps** cannot be separated (only vector colours are
+  inspected).
+- Objects with a **design fill + magenta outline** are skipped as mixed.
+- `pdf-bicak` works at the PDF content-stream level; this script works at the
+  CorelDRAW **object** level. They complement each other for complex files.
+
 ## Workflow notes
 
 - **Print:** publish to PDF from CorelDRAW as usual; the marks are on the
@@ -214,8 +253,8 @@ node tests/mock_coreldraw.js
 ```
 
 `tests/mock_coreldraw.js` mocks the CorelDRAW API and tests geometry, layer
-behaviour, selection geometry, long-job mark rows, lock handling and repeated
-runs (15/15 passing).
+behaviour, selection geometry, long-job mark rows, lock handling, repeated
+runs and magenta cut separation (19/19 passing).
 
 ## License
 

@@ -42,6 +42,10 @@ def main() -> None:
     (SCRIPTS / "Summa-Test.js").write_text(test_script, encoding="utf-8")
     print("yazildi: Summa-Test.js")
 
+    cut_script = (ROOT / "src" / "kesim-ayir.js").read_text(encoding="utf-8")
+    (SCRIPTS / "Summa-Kesim-Ayir.js").write_text(cut_script, encoding="utf-8")
+    print("yazildi: Summa-Kesim-Ayir.js")
+
 
 if __name__ == "__main__":
     main()

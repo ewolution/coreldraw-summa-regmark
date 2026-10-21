@@ -16,6 +16,25 @@ const assert = require("assert");
 const ROOT = path.resolve(__dirname, "..");
 const SCRIPTS = path.join(ROOT, "scripts");
 
+class Color {
+  constructor(owner) {
+    this.owner = owner || null;
+    this.CMYKCyan = 0;
+    this.CMYKMagenta = 0;
+    this.CMYKYellow = 0;
+    this.CMYKBlack = 0;
+    this.IsSpot = false;
+    this.SpotColorName = "";
+  }
+  CMYKAssign(c, m, y, k) {
+    this.CMYKCyan = c;
+    this.CMYKMagenta = m;
+    this.CMYKYellow = y;
+    this.CMYKBlack = k;
+    if (this.owner) this.owner.cmyk = [c, m, y, k];
+  }
+}
+
 class Shape {
   constructor(page, x0, y0, x1, y1) {
     this.page = page;
@@ -25,14 +44,50 @@ class Shape {
     this.y1 = y1;
     this.locked = false;
     this.cmyk = null;
-    this.Fill = {
-      UniformColor: {
-        CMYKAssign: (c, m, y, k) => {
-          this.cmyk = [c, m, y, k];
-        },
-      },
-    };
-    this.Outline = { Type: 1, Width: 0.2 };
+    this.Fill = { Type: 0, UniformColor: new Color(this) };
+    this.Outline = { Type: 0, Width: 0.2, Color: new Color(this) };
+  }
+  fillCMYK(c, m, y, k) {
+    this.Fill.Type = 1;
+    this.Fill.UniformColor.CMYKAssign(c, m, y, k);
+    return this;
+  }
+  outlineCMYK(c, m, y, k) {
+    this.Outline.Type = 1;
+    this.Outline.Color.CMYKAssign(c, m, y, k);
+    return this;
+  }
+  spotFill(name) {
+    this.Fill.Type = 1;
+    this.Fill.UniformColor.IsSpot = true;
+    this.Fill.UniformColor.SpotColorName = name;
+    return this;
+  }
+  spotOutline(name) {
+    this.Outline.Type = 1;
+    this.Outline.Color.IsSpot = true;
+    this.Outline.Color.SpotColorName = name;
+    return this;
+  }
+  noFill() {
+    this.Fill.Type = 0;
+    return this;
+  }
+  noOutline() {
+    this.Outline.Type = 0;
+    return this;
+  }
+  MoveToLayer(layer) {
+    const oldPage = this.page;
+    const oldLayer = oldPage.layers.find((item) => item.Shapes.items.includes(this));
+    if (oldLayer) {
+      const index = oldLayer.Shapes.items.indexOf(this);
+      oldLayer.Shapes.items.splice(index, 1);
+    }
+    oldPage.allShapes = oldPage.allShapes.filter((item) => item !== this);
+    layer.Shapes.add(this);
+    this.page = layer.page;
+    this.page.allShapes.push(this);
   }
   get PositionX() { return this.x0; }
   get PositionY() { return this.y0; }
@@ -116,7 +171,9 @@ class Page {
     this.layers = [];
     this.allShapes = [];
     this.shiftOnResize = { dx: 0, dy: 0 };
+    this.doc = null;
   }
+  get Index() { return this.doc ? this.doc.pages.indexOf(this) + 1 : 1; }
   get SizeWidth() { return this.w; }
   get SizeHeight() { return this.h; }
   get Layers() {
@@ -146,6 +203,38 @@ class Page {
   }
 }
 
+class Document {
+  constructor(page) {
+    this.Unit = 4;
+    this.pages = [page];
+    page.doc = this;
+    this.ActivePage = page;
+  }
+  get Pages() {
+    const doc = this;
+    return {
+      get Count() { return doc.pages.length; },
+      Item(index) {
+        const page = doc.pages[index - 1];
+        if (!page) throw new Error("Page index out of range: " + index);
+        return page;
+      },
+    };
+  }
+  AddPagesEx(count, width, height) {
+    let first = null;
+    for (let i = 0; i < count; i++) {
+      const page = new Page(width, height);
+      page.doc = this;
+      page.CreateLayer("Layer 1");
+      this.pages.push(page);
+      if (!first) first = page;
+    }
+    this.ActivePage = first;
+    return first;
+  }
+}
+
 function round(value) {
   return Math.round(value * 100) / 100;
 }
@@ -157,12 +246,13 @@ function makePage(width = 100, height = 50, withShape = true) {
   return page;
 }
 
-function run(scriptName, page, selection = null) {
+function run(scriptName, page, selection = null, doc = null) {
   const code = fs.readFileSync(path.join(SCRIPTS, scriptName), "utf8");
   const alerts = [];
+  const document = doc || new Document(page);
   const sandbox = {
     host: {
-      ActiveDocument: { Unit: 4, ActivePage: page },
+      ActiveDocument: document,
       ActiveSelection: selection,
     },
     alert: (text) => alerts.push(String(text)),
@@ -292,7 +382,7 @@ test("temizleme betigi Regmark katmanini siler", () => {
   assert.deepStrictEqual(page.allShapes[0].rect(), [18, 18, 28, 28]);
 });
 
-function runWithSettings(scriptName, replacements, page, selection = null) {
+function runWithSettings(scriptName, replacements, page, selection = null, doc = null) {
   let source = fs.readFileSync(path.join(SCRIPTS, scriptName), "utf8");
   replacements.forEach(([from, to]) => {
     source = source.replace(from, to);
@@ -301,7 +391,7 @@ function runWithSettings(scriptName, replacements, page, selection = null) {
   const file = path.join(SCRIPTS, name);
   fs.writeFileSync(file, source);
   try {
-    return run(name, page, selection);
+    return run(name, page, selection, doc);
   } finally {
     fs.unlinkSync(file);
   }
@@ -407,6 +497,81 @@ test("uzun is: esit aralikli ek marka satirlari", () => {
   const gaps = centers.slice(1).map((value, index) => round(value - centers[index]));
   assert.ok(gaps.every((gap) => Math.abs(gap - gaps[0]) < 0.01), "araliklar esit");
   assert.ok(gaps[0] <= 300.01, "aralik 300 mm'yi gecmemeli");
+});
+
+test("kesim ayir: magenta nesneler yeni sayfaya tasinir", () => {
+  const page = makePage(100, 50, false);
+  const base = page.layers[0];
+  const cut = base.CreateRectangle(10, 10, 80, 40).noFill().outlineCMYK(0, 100, 0, 0);
+  const design = base.CreateRectangle(5, 5, 20, 20).fillCMYK(100, 0, 0, 0).noOutline();
+  const fillCut = base.CreateRectangle(30, 10, 50, 20).fillCMYK(0, 100, 0, 0).noOutline();
+  const mixed = base.CreateRectangle(60, 10, 70, 20).fillCMYK(100, 0, 0, 0).outlineCMYK(0, 100, 0, 0);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, null, doc);
+  assert.ok(/ayrıldı/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(doc.pages.length, 2, "yeni kesim sayfasi olusmali");
+  assert.strictEqual(round(doc.pages[1].SizeWidth), 100);
+  assert.strictEqual(round(doc.pages[1].SizeHeight), 50);
+
+  const cutLayer = doc.pages[1].Layers.Find("Kesim");
+  assert.ok(cutLayer, "Kesim katmani olusmali");
+  assert.strictEqual(cutLayer.Shapes.Count, 2);
+  assert.deepStrictEqual(cut.rect(), [10, 10, 80, 40], "konum korunmali");
+  assert.deepStrictEqual(fillCut.rect(), [30, 10, 50, 20]);
+  assert.strictEqual(base.Shapes.Count, 2, "tasarim ve karisik nesne kalir");
+  assert.ok(/Taşınan nesne: 2/.test(alerts[0]), alerts[0]);
+  assert.ok(/Karışık \(atlanan\): 1/.test(alerts[0]), alerts[0]);
+});
+
+test("kesim ayir: katman modunda sayfa korunur", () => {
+  const page = makePage(100, 50, false);
+  const base = page.layers[0];
+  base.CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 100, 0, 0);
+  base.CreateRectangle(30, 10, 40, 20).fillCMYK(0, 100, 0, 0).noOutline();
+  const doc = new Document(page);
+
+  const alerts = runWithSettings(
+    "Summa-Kesim-Ayir.js",
+    [["  yeniSayfa: true,", "  yeniSayfa: false,"]],
+    page,
+    null,
+    doc
+  );
+
+  assert.strictEqual(doc.pages.length, 1, "sayfa eklenmemeli");
+  const layer = page.Layers.Find("Kesim");
+  assert.ok(layer, "Kesim katmani olusmali");
+  assert.strictEqual(layer.Shapes.Count, 2);
+  assert.strictEqual(base.Shapes.Count, 0);
+  assert.ok(/aynı sayfa/.test(alerts[0]), alerts[0]);
+});
+
+test("kesim ayir: spot renk adi ile tanima", () => {
+  const page = makePage(100, 50, false);
+  const base = page.layers[0];
+  base.CreateRectangle(10, 10, 20, 20).noFill().spotOutline("Cut");
+  base.CreateRectangle(30, 10, 40, 20).spotFill("Kesim");
+
+  const doc = new Document(page);
+  const alerts = run("Summa-Kesim-Ayir.js", page, null, doc);
+  assert.ok(/Taşınan nesne: 2/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(doc.pages[1].Layers.Find("Kesim").Shapes.Count, 2);
+});
+
+test("kesim ayir: tolerans siniri", () => {
+  const nearPage = makePage(100, 50, false);
+  nearPage.layers[0].CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 99.6, 0, 0);
+  const nearDoc = new Document(nearPage);
+  run("Summa-Kesim-Ayir.js", nearPage, null, nearDoc);
+  assert.strictEqual(nearDoc.pages.length, 2, "99.6 magenta sayilmali");
+
+  const farPage = makePage(100, 50, false);
+  farPage.layers[0].CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 99, 0, 0);
+  const farDoc = new Document(farPage);
+  const alerts = run("Summa-Kesim-Ayir.js", farPage, null, farDoc);
+  assert.strictEqual(farDoc.pages.length, 1, "99 magenta sayilmamali");
+  assert.ok(/bulunamadı/.test(alerts[0]), alerts[0]);
 });
 
 let failed = 0;

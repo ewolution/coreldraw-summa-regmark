@@ -175,6 +175,7 @@ Kapsanan senaryolar:
 - Tekrar çalıştırma (idempotency)
 - Uzun işlerde eşit aralıklı satırlar
 - Temizleme betiği
+- Magenta kesim ayrımı (sayfa ve katman modu, spot renk, tolerans)
 
 ## 7. Yeni bir OPOS varyantı eklemek
 
@@ -184,12 +185,39 @@ Kapsanan senaryolar:
 3. `python3 tools/build.py` ve `node tests/mock_coreldraw.js` çalıştırın.
 4. README ve `docs/OPOS-marka-yerlesimi.md` tablolarını güncelleyin.
 
-## 8. Sınırlamalar
+## 8. Magenta kesim ayırma
+
+`src/kesim-ayir.js` → `scripts/Summa-Kesim-Ayir.js`. CorelDRAW nesne modelinde
+renk eşleştirmesi yapar:
+
+- Dolgu: `Shape.Fill.Type === 1` (`cdrUniformFill`) ve
+  `Fill.UniformColor.CMYKCyan/CMYKMagenta/CMYKYellow/CMYKBlack` (0–100) değerleri
+  `kesimCmyk` ile `tolerans` içinde eşleşir.
+- Kontur: `Shape.Outline.Type !== 0` ve `Outline.Color` aynı şekilde eşleşir.
+- Spot renk: `Color.IsSpot` ve `Color.SpotColorName` / `Color.Name` içinde
+  `spotAdlari` listesinden biri geçiyorsa kesim sayılır.
+- Karışık nesne (tasarım dolgusu + magenta kontur) atlanır; baskı içeriği
+  kaybolmasın diye.
+- Gruplar: tüm yapraklar kesimse grup taşınır; karışık renk varsa uyarı verilip
+  atlanır.
+
+Taşıma:
+
+- `yeniSayfa: true` → `Document.AddPagesEx(1, W, H)` ile aynı boyutta yeni sayfa,
+  `Page.CreateLayer("Kesim")`, ardından `Shape.MoveToLayer(layer)`.
+- `yeniSayfa: false` → aynı sayfada `Kesim` katmanı.
+- `MoveToLayer` sonrası `PositionX/Y` farkı `Shape.Move(dx, dy)` ile düzeltilir;
+  böylece kesim çizgileri baskı sayfasıyla aynı koordinatta kalır.
+
+## 9. Sınırlamalar
 
 - Yalnızca aktif sayfa ve aktif seçim işlenir.
 - Master page içeriği sayfa büyütmesinde kaymaz.
 - Sayfa yalnızca büyütülür; seçime göre küçültülmez.
 - `alert` dışında arayüz yoktur.
 - Barkod / iş numarası / otomatik kesim dosyası üretimi yoktur.
+- Bitmap içindeki magenta pikseller ayrılamaz; yalnızca vektör dolgu/kontur
+  renkleri taranır.
+- Grup içindeki karışık renkli nesneler otomatik ayrılmaz; önce grup çözülmelidir.
 - Windows eklentisinin birebir aynısı değildir; marka boyutu ve aralık
   ayarlanabilir.

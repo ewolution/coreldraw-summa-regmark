@@ -73,6 +73,7 @@ Manuel kurulum isterseniz `scripts/` içindeki `.js` dosyalarını aynı klasör
 | `Summa-OPOS-X.js` | Kesici OPOS **X** modunda |
 | `Summa-OPOS-XY.js` | Kesici OPOS **XY** modunda |
 | `Summa-OPOS-XY2.js` | Kesici OPOS **XY2** modunda |
+| `Summa-Kesim-Ayir.js` | Magenta kesim çizgilerini ayırmak için |
 | `Summa-Regmark-Kaldir.js` | İşaretleri/katmanı silmek için |
 | `Summa-Test.js` | Betikler çalışmıyorsa API kontrolü |
 
@@ -152,6 +153,42 @@ Ayrıntılı yerleşim, kesici ayarları ve kaynaklar:
 Kodun ve API kullanımının ayrıntıları:
 **[docs/TEKNIK-DETAYLAR.md](docs/TEKNIK-DETAYLAR.md)** · [EN](docs/technical-details.en.md)
 
+## Magenta kesim çizgilerini ayırma
+
+`Summa-Kesim-Ayir.js`, tam **CMYK 0/100/0/0** (veya adı `Cut`, `Kesim`, `Magenta`,
+`Kiss-cut`, `Thru-cut` olan spot renk) ile boyanmış nesneleri bulur ve ayırır.
+
+```js
+var AYAR = {
+  kesimCmyk: [0, 100, 0, 0], // C, M, Y, K (0-100)
+  tolerans: 0.5,             // renk toleransı
+  spotAdlari: ["cut", "kesim", "magenta", "kiss-cut", "thru-cut"],
+  yeniSayfa: true,           // true: 2. sayfa, false: aynı sayfada "Kesim" katmanı
+  kesimKatmani: "Kesim"
+};
+```
+
+- `yeniSayfa: true` (varsayılan): aynı boyutta **yeni bir sayfa** oluşturur ve
+  kesim çizgilerini oraya taşır. Sayfa 1 baskı, sayfa 2 kesim olur.
+- `yeniSayfa: false`: aynı sayfada **`Kesim` katmanına** taşır. Baskıda bu
+  katmanı, kesimde tasarım katmanlarını kapatarak iki PDF üretirsiniz.
+
+### İş akışı (yeni sayfa modu)
+
+1. `Summa-Kesim-Ayir` betiğini çalıştır.
+2. Sayfa 1'e geç, **seçim yapmadan** `Summa-OPOS-*` çalıştır.
+3. Sayfa 2'ye geç, **seçim yapmadan** aynı `Summa-OPOS-*` betiğini çalıştır.
+   Böylece iki sayfa da aynı miktarda büyür ve koordinatlar korunur.
+4. Sayfa 1'i baskı PDF'i, sayfa 2'yi kesim PDF'i olarak ver.
+
+### Sınırlamalar
+
+- **Grupları önce çözün.** Grup içinde karışık renk varsa betik o grubu atlar.
+- **Bitmap** içindeki magenta pikseller ayrılamaz (vektör renk taraması yapılır).
+- Aynı nesnede **baskı dolgusu + magenta kontur** varsa nesne atlanır (karışık).
+- `pdf-bicak` PDF içerik akışı seviyesinde çalışır; bu betik CorelDRAW **nesne**
+  seviyesinde çalışır. Karmaşık PDF'ler için ikisi tamamlayıcıdır.
+
 ## İş akışı notları
 
 - **Baskı:** CorelDRAW'dan normal şekilde PDF'e verin; işaretler `Regmark`
@@ -204,7 +241,7 @@ node tests/mock_coreldraw.js
 ```
 
 `tests/mock_coreldraw.js`, CorelDRAW API'sini taklit ederek geometriyi, katman
-davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü ve tekrar çalıştırmayı test eder (15/15 geçer).
+davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü, tekrar çalıştırmayı ve magenta kesim ayrımını test eder (19/19 geçer).
 
 ## Lisans
 

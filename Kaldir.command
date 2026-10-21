@@ -20,7 +20,8 @@ for dir in "$BASE"/CorelDRAW\ Graphics\ Suite\ 20*(N); do
           "$TARGET"/Summa-OPOS-XY.js \
           "$TARGET"/Summa-OPOS-XY2.js \
           "$TARGET"/Summa-Regmark-Kaldir.js \
-          "$TARGET"/Summa-Test.js
+          "$TARGET"/Summa-Test.js \
+          "$TARGET"/Summa-Kesim-Ayir.js
     echo "✓ $(basename "$dir")"
     COUNT=$((COUNT+1))
   fi
