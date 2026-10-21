@@ -175,7 +175,7 @@ Kapsanan senaryolar:
 - Tekrar çalıştırma (idempotency)
 - Uzun işlerde eşit aralıklı satırlar
 - Temizleme betiği
-- Magenta kesim ayrımı (sayfa ve katman modu, spot renk, tolerans)
+- Magenta kesim ayrımı (seçim/sayfa, katman modu, grup desteği, tam renk eşleşmesi)
 
 ## 7. Yeni bir OPOS varyantı eklemek
 
@@ -188,26 +188,49 @@ Kapsanan senaryolar:
 ## 8. Magenta kesim ayırma
 
 `src/kesim-ayir.js` → `scripts/Summa-Kesim-Ayir.js`. CorelDRAW nesne modelinde
-renk eşleştirmesi yapar:
+çalışır ve **önce OPOS XY regmarklarını ekler, sonra kesim çizgilerini ayırır**.
+
+Hedef alan:
+
+- **Seçim varsa** hedef = seçili nesnelerin sınır kutusu; yalnızca seçili
+  nesneler ayrılır.
+- **Seçim yoksa** hedef = sayfa; tüm sayfa taranır.
+- Seçim, birim değişikliğinden önce ve sonra okunur; `ActiveSelection`,
+  `ActiveSelectionRange` ve `Shape.Selected` yolları denenir.
+
+Renk eşleştirmesi:
 
 - Dolgu: `Shape.Fill.Type === 1` (`cdrUniformFill`) ve
-  `Fill.UniformColor.CMYKCyan/CMYKMagenta/CMYKYellow/CMYKBlack` (0–100) değerleri
-  `kesimCmyk` ile `tolerans` içinde eşleşir.
-- Kontur: `Shape.Outline.Type !== 0` ve `Outline.Color` aynı şekilde eşleşir.
-- Spot renk: `Color.IsSpot` ve `Color.SpotColorName` / `Color.Name` içinde
-  `spotAdlari` listesinden biri geçiyorsa kesim sayılır.
-- Karışık nesne (tasarım dolgusu + magenta kontur) atlanır; baskı içeriği
-  kaybolmasın diye.
-- Gruplar: tüm yapraklar kesimse grup taşınır; karışık renk varsa uyarı verilip
-  atlanır.
+  `Fill.UniformColor.CMYKCyan/CMYKMagenta/CMYKYellow/CMYKBlack` değerleri
+  `kesimCmyk` ile **tam** eşleşir.
+- Kontur: `Shape.Outline.Type !== 0` ve `Outline.Color` aynı şekilde tam eşleşir.
+- **Tolerans yoktur**; 99.9 veya 90 magenta seçilmez. Spot renk adı da tek
+  başına kesim sayılmaz.
+- Karışık nesne (tasarım dolgusu + magenta kontur) atlanır.
+- Gruplar:
+  - Grup, `Shape.Type === cdrGroupShape (7)` veya `Shape.Shapes.Count > 0` ile
+    tanınır.
+  - Görünmez/yardımcı yapraklar (dolgu ve kontur yok) sayılmaz.
+  - Tüm görünür yapraklar kesimse grup **bozulmadan** taşınır.
+  - Karışık grup `Shape.Ungroup()` ile bir seviye çözülür; alt nesneler tek tek
+    işlenir, kesim olanlar taşınır.
+  - PowerClip içeren gruplar güvenlik için atlanır.
 
-Taşıma:
+Akış:
 
-- `yeniSayfa: true` → `Document.AddPagesEx(1, W, H)` ile aynı boyutta yeni sayfa,
-  `Page.CreateLayer("Kesim")`, ardından `Shape.MoveToLayer(layer)`.
-- `yeniSayfa: false` → aynı sayfada `Kesim` katmanı.
-- `MoveToLayer` sonrası `PositionX/Y` farkı `Shape.Move(dx, dy)` ile düzeltilir;
-  böylece kesim çizgileri baskı sayfasıyla aynı koordinatta kalır.
+1. Kesim nesneleri regmark eklenmeden önce toplanır.
+2. Sayfa 1'e `addMarks(page, true)` ile regmark eklenir; sayfa gerekirse büyür,
+   içerik `frame` kadar kayar.
+3. `yeniSayfa: true` ise `Document.AddPagesEx(1, W, H)` ile sayfa 1'in **yeni**
+   boyutunda sayfa 2 oluşturulur.
+4. Sayfa 2'ye `addMarks(page2, false)` ile **aynı hedefe** regmark eklenir;
+   sayfa zaten büyütülmüş olduğu için **tekrar büyütülmez**.
+5. Kesim nesneleri `Kesim` katmanına `MoveToLayer` ile taşınır; `PositionX/Y`
+   farkı `Move` ile düzeltilir.
+
+Bu sıra sayesinde iki sayfa da aynı boyutta ve aynı koordinat sisteminde olur;
+sayfa 1 baskı, sayfa 2 kesim dosyasıdır. Regmarklar **OPOS XY**'dir: 4 kare +
+alt çizgi (üst çizgi yok).
 
 ## 9. Sınırlamalar
 

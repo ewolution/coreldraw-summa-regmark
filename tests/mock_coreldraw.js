@@ -44,6 +44,8 @@ class Shape {
     this.y1 = y1;
     this.locked = false;
     this.cmyk = null;
+    this.Type = 0;
+    this.PowerClip = null;
     this.Fill = { Type: 0, UniformColor: new Color(this) };
     this.Outline = { Type: 0, Width: 0.2, Color: new Color(this) };
   }
@@ -76,6 +78,22 @@ class Shape {
   noOutline() {
     this.Outline.Type = 0;
     return this;
+  }
+  Ungroup() {
+    if (!this.children) throw new Error("Shape is not a group");
+    const layer = this.page.layers.find((item) => item.Shapes.items.includes(this));
+    if (!layer) throw new Error("Group layer not found");
+
+    layer.Shapes.items = layer.Shapes.items.filter((item) => item !== this);
+    this.page.allShapes = this.page.allShapes.filter((item) => item !== this);
+
+    this.children.forEach((child) => {
+      child.page = this.page;
+      layer.Shapes.add(child);
+      this.page.allShapes.push(child);
+    });
+
+    return new ShapeRange(this.children);
   }
   MoveToLayer(layer) {
     const oldPage = this.page;
@@ -244,6 +262,28 @@ function makePage(width = 100, height = 50, withShape = true) {
   const base = page.CreateLayer("Layer 1");
   if (withShape) base.CreateRectangle(0, 0, 10, 10);
   return page;
+}
+
+function makeGroup(page, layer, shapes) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  shapes.forEach((shape) => {
+    x0 = Math.min(x0, shape.x0);
+    y0 = Math.min(y0, shape.y0);
+    x1 = Math.max(x1, shape.x1);
+    y1 = Math.max(y1, shape.y1);
+  });
+
+  const group = new Shape(page, x0, y0, x1, y1);
+  group.Type = 7;
+  group.children = shapes.slice();
+  group.Shapes = new ShapeCollection();
+  group.Shapes.items = shapes.slice();
+
+  layer.Shapes.items = layer.Shapes.items.filter((item) => !shapes.includes(item));
+  page.allShapes = page.allShapes.filter((item) => !shapes.includes(item));
+  layer.Shapes.add(group);
+  page.allShapes.push(group);
+  return group;
 }
 
 function run(scriptName, page, selection = null, doc = null) {
@@ -499,7 +539,7 @@ test("uzun is: esit aralikli ek marka satirlari", () => {
   assert.ok(gaps[0] <= 300.01, "aralik 300 mm'yi gecmemeli");
 });
 
-test("kesim ayir: magenta nesneler yeni sayfaya tasinir", () => {
+test("kesim ayir: once regmark, sonra yeni sayfaya ayirma", () => {
   const page = makePage(100, 50, false);
   const base = page.layers[0];
   const cut = base.CreateRectangle(10, 10, 80, 40).noFill().outlineCMYK(0, 100, 0, 0);
@@ -509,26 +549,40 @@ test("kesim ayir: magenta nesneler yeni sayfaya tasinir", () => {
   const doc = new Document(page);
 
   const alerts = run("Summa-Kesim-Ayir.js", page, null, doc);
-  assert.ok(/ayrıldı/.test(alerts[0]), alerts[0]);
-  assert.strictEqual(doc.pages.length, 2, "yeni kesim sayfasi olusmali");
-  assert.strictEqual(round(doc.pages[1].SizeWidth), 100);
-  assert.strictEqual(round(doc.pages[1].SizeHeight), 50);
+  assert.ok(/Regmark eklendi ve kesim ayrıldı/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(doc.pages.length, 2, "kesim sayfasi olusmali");
 
-  const cutLayer = doc.pages[1].Layers.Find("Kesim");
+  const page1 = doc.pages[0];
+  const page2 = doc.pages[1];
+  assert.strictEqual(round(page1.SizeWidth), 136, "baski sayfasi buyumeli");
+  assert.strictEqual(round(page1.SizeHeight), 86);
+  assert.strictEqual(round(page2.SizeWidth), 136, "kesim sayfasi ayni boyutta");
+  assert.strictEqual(round(page2.SizeHeight), 86);
+
+  const marks1 = page1.Layers.Find("Regmark");
+  const marks2 = page2.Layers.Find("Regmark");
+  assert.ok(marks1, "page1 Regmark katmani");
+  assert.ok(marks2, "page2 Regmark katmani");
+  assert.strictEqual(marks1.Shapes.Count, 5, "4 kare + 1 alt cizgi (OPOS XY)");
+  assert.strictEqual(marks2.Shapes.Count, 5);
+  assert.strictEqual(marks1.Editable, true, "page1 regmark katmani kilitli olmamali");
+  assert.strictEqual(marks2.Editable, true, "page2 regmark katmani kilitli olmamali");
+
+  const cutLayer = page2.Layers.Find("Kesim");
   assert.ok(cutLayer, "Kesim katmani olusmali");
   assert.strictEqual(cutLayer.Shapes.Count, 2);
-  assert.deepStrictEqual(cut.rect(), [10, 10, 80, 40], "konum korunmali");
-  assert.deepStrictEqual(fillCut.rect(), [30, 10, 50, 20]);
-  assert.strictEqual(base.Shapes.Count, 2, "tasarim ve karisik nesne kalir");
+  assert.deepStrictEqual(cut.rect(), [28, 28, 98, 58], "kesim konumu korunmali");
+  assert.deepStrictEqual(fillCut.rect(), [48, 28, 68, 38]);
+  assert.strictEqual(base.Shapes.Count, 2, "tasarim ve karisik nesne page1'de kalir");
   assert.ok(/Taşınan nesne: 2/.test(alerts[0]), alerts[0]);
   assert.ok(/Karışık \(atlanan\): 1/.test(alerts[0]), alerts[0]);
 });
 
-test("kesim ayir: katman modunda sayfa korunur", () => {
+test("kesim ayir: katman modunda regmark + Kesim katmani", () => {
   const page = makePage(100, 50, false);
   const base = page.layers[0];
-  base.CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 100, 0, 0);
-  base.CreateRectangle(30, 10, 40, 20).fillCMYK(0, 100, 0, 0).noOutline();
+  const cut1 = base.CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 100, 0, 0);
+  const cut2 = base.CreateRectangle(30, 10, 40, 20).fillCMYK(0, 100, 0, 0).noOutline();
   const doc = new Document(page);
 
   const alerts = runWithSettings(
@@ -540,38 +594,150 @@ test("kesim ayir: katman modunda sayfa korunur", () => {
   );
 
   assert.strictEqual(doc.pages.length, 1, "sayfa eklenmemeli");
+  assert.ok(page.Layers.Find("Regmark"), "Regmark eklenmeli");
   const layer = page.Layers.Find("Kesim");
   assert.ok(layer, "Kesim katmani olusmali");
   assert.strictEqual(layer.Shapes.Count, 2);
   assert.strictEqual(base.Shapes.Count, 0);
+  assert.deepStrictEqual(cut1.rect(), [28, 28, 38, 38], "regmark kaydirmasi");
+  assert.deepStrictEqual(cut2.rect(), [48, 28, 58, 38]);
   assert.ok(/aynı sayfa/.test(alerts[0]), alerts[0]);
 });
 
-test("kesim ayir: spot renk adi ile tanima", () => {
-  const page = makePage(100, 50, false);
-  const base = page.layers[0];
-  base.CreateRectangle(10, 10, 20, 20).noFill().spotOutline("Cut");
-  base.CreateRectangle(30, 10, 40, 20).spotFill("Kesim");
+test("kesim ayir: tam 0/100/0/0 disinda tolerans yok", () => {
+  const exactPage = makePage(100, 50, false);
+  exactPage.layers[0].CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 100, 0, 0);
+  const exactDoc = new Document(exactPage);
+  run("Summa-Kesim-Ayir.js", exactPage, null, exactDoc);
+  assert.strictEqual(exactDoc.pages.length, 2, "tam 0/100/0/0 sayilmali");
 
-  const doc = new Document(page);
-  const alerts = run("Summa-Kesim-Ayir.js", page, null, doc);
-  assert.ok(/Taşınan nesne: 2/.test(alerts[0]), alerts[0]);
-  assert.strictEqual(doc.pages[1].Layers.Find("Kesim").Shapes.Count, 2);
+  const nearPage = makePage(100, 50, false);
+  nearPage.layers[0].CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 99.9, 0, 0);
+  const nearDoc = new Document(nearPage);
+  const nearAlerts = run("Summa-Kesim-Ayir.js", nearPage, null, nearDoc);
+  assert.strictEqual(nearDoc.pages.length, 1, "99.9 sayilmamali");
+  assert.ok(/bulunamadı/.test(nearAlerts[0]), nearAlerts[0]);
+  assert.strictEqual(nearPage.Layers.Find("Regmark"), null, "marka da eklenmemeli");
 });
 
-test("kesim ayir: tolerans siniri", () => {
-  const nearPage = makePage(100, 50, false);
-  nearPage.layers[0].CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 99.6, 0, 0);
-  const nearDoc = new Document(nearPage);
-  run("Summa-Kesim-Ayir.js", nearPage, null, nearDoc);
-  assert.strictEqual(nearDoc.pages.length, 2, "99.6 magenta sayilmali");
+test("kesim ayir: spot renk adi tek basina kesim sayilmaz", () => {
+  const page = makePage(100, 50, false);
+  page.layers[0].CreateRectangle(10, 10, 20, 20).noFill().spotOutline("Cut");
+  const doc = new Document(page);
+  const alerts = run("Summa-Kesim-Ayir.js", page, null, doc);
 
-  const farPage = makePage(100, 50, false);
-  farPage.layers[0].CreateRectangle(10, 10, 20, 20).noFill().outlineCMYK(0, 99, 0, 0);
-  const farDoc = new Document(farPage);
-  const alerts = run("Summa-Kesim-Ayir.js", farPage, null, farDoc);
-  assert.strictEqual(farDoc.pages.length, 1, "99 magenta sayilmamali");
+  assert.strictEqual(doc.pages.length, 1);
   assert.ok(/bulunamadı/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(page.Layers.Find("Regmark"), null);
+});
+
+test("kesim ayir: secili nesneler baz alinir", () => {
+  const page = makePage(200, 200, false);
+  const base = page.layers[0];
+  const selectedCut = base.CreateRectangle(50, 50, 100, 100).noFill().outlineCMYK(0, 100, 0, 0);
+  const otherCut = base.CreateRectangle(150, 150, 180, 180).noFill().outlineCMYK(0, 100, 0, 0);
+  const design = base.CreateRectangle(10, 10, 30, 30).fillCMYK(100, 0, 0, 0).noOutline();
+  const selection = new ShapeRange([selectedCut]);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, selection, doc);
+  assert.ok(/Mod: seçili nesneler/.test(alerts[0]), alerts[0]);
+  assert.ok(/Taşınan nesne: 1/.test(alerts[0]), alerts[0]);
+
+  assert.strictEqual(doc.pages.length, 2);
+  const page1 = doc.pages[0];
+  const page2 = doc.pages[1];
+  assert.strictEqual(round(page1.SizeWidth), 200, "sayfa buyumemeli");
+  assert.strictEqual(round(page1.SizeHeight), 200);
+  assert.strictEqual(round(page2.SizeWidth), 200);
+  assert.strictEqual(round(page2.SizeHeight), 200);
+
+  assert.strictEqual(page1.Layers.Find("Regmark").Shapes.Count, 5);
+  assert.strictEqual(page2.Layers.Find("Regmark").Shapes.Count, 5);
+  assert.strictEqual(page2.Layers.Find("Kesim").Shapes.Count, 1, "sadece secili kesim tasinmali");
+
+  assert.deepStrictEqual(selectedCut.rect(), [50, 50, 100, 100]);
+  assert.deepStrictEqual(otherCut.rect(), [150, 150, 180, 180], "secili olmayan kesim yerinde kalmali");
+  assert.deepStrictEqual(design.rect(), [10, 10, 30, 30]);
+  assert.strictEqual(base.Shapes.Count, 2, "diger kesim + tasarim page1'de");
+});
+
+test("kesim ayir: secim kenardaysa hedef kayar, iki sayfa hizali kalir", () => {
+  const page = makePage(200, 200, false);
+  const base = page.layers[0];
+  const cut = base.CreateRectangle(0, 0, 30, 30).noFill().outlineCMYK(0, 100, 0, 0);
+  const selection = new ShapeRange([cut]);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, selection, doc);
+  assert.ok(/Mod: seçili nesneler/.test(alerts[0]), alerts[0]);
+
+  assert.strictEqual(round(doc.pages[0].SizeWidth), 200);
+  assert.strictEqual(round(doc.pages[1].SizeWidth), 200);
+  assert.deepStrictEqual(cut.rect(), [18, 18, 48, 48], "secim 18,18'e kaymali");
+  assert.strictEqual(doc.pages[0].Layers.Find("Regmark").Shapes.Count, 5);
+  assert.strictEqual(doc.pages[1].Layers.Find("Regmark").Shapes.Count, 5);
+
+  // Iki sayfadaki marka konumlari ayni olmali.
+  const marks1 = doc.pages[0].Layers.Find("Regmark").Shapes.items.map((s) => s.rect());
+  const marks2 = doc.pages[1].Layers.Find("Regmark").Shapes.items.map((s) => s.rect());
+  assert.deepStrictEqual(marks2, marks1);
+});
+
+test("kesim ayir: tamamen kesim grubu bozulmadan tasinir", () => {
+  const page = makePage(200, 200, false);
+  const base = page.layers[0];
+  const cut1 = base.CreateRectangle(50, 50, 70, 70).noFill().outlineCMYK(0, 100, 0, 0);
+  const cut2 = base.CreateRectangle(80, 50, 100, 70).noFill().outlineCMYK(0, 100, 0, 0);
+  const group = makeGroup(page, base, [cut1, cut2]);
+  const selection = new ShapeRange([group]);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, selection, doc);
+  assert.ok(/Taşınan nesne: 1/.test(alerts[0]), alerts[0]);
+  assert.ok(/Açılan grup: 0/.test(alerts[0]), alerts[0]);
+
+  const cutLayer = doc.pages[1].Layers.Find("Kesim");
+  assert.strictEqual(cutLayer.Shapes.Count, 1);
+  assert.strictEqual(cutLayer.Shapes.Item(1).Type, 7, "grup korunmali");
+  assert.strictEqual(base.Shapes.Count, 0);
+  assert.deepStrictEqual(group.rect(), [50, 50, 100, 70]);
+});
+
+test("kesim ayir: karisik grup cozulup kesim ayrilir", () => {
+  const page = makePage(200, 200, false);
+  const base = page.layers[0];
+  const cut = base.CreateRectangle(50, 50, 70, 70).noFill().outlineCMYK(0, 100, 0, 0);
+  const design = base.CreateRectangle(80, 50, 100, 70).fillCMYK(100, 0, 0, 0).noOutline();
+  const group = makeGroup(page, base, [cut, design]);
+  const selection = new ShapeRange([group]);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, selection, doc);
+  assert.ok(/Açılan grup: 1/.test(alerts[0]), alerts[0]);
+  assert.ok(/Taşınan nesne: 1/.test(alerts[0]), alerts[0]);
+
+  const cutLayer = doc.pages[1].Layers.Find("Kesim");
+  assert.strictEqual(cutLayer.Shapes.Count, 1);
+  assert.notStrictEqual(cutLayer.Shapes.Item(1).Type, 7, "kesim yapragi tasinmali");
+  assert.strictEqual(base.Shapes.Count, 1, "tasarim yapragi page1'de kalmali");
+  assert.deepStrictEqual(design.rect(), [80, 50, 100, 70]);
+});
+
+test("kesim ayir: gorunmez yardimci nesne grubu bozmaz", () => {
+  const page = makePage(200, 200, false);
+  const base = page.layers[0];
+  const cut = base.CreateRectangle(50, 50, 70, 70).noFill().outlineCMYK(0, 100, 0, 0);
+  const helper = base.CreateRectangle(50, 50, 70, 70).noFill().noOutline();
+  const group = makeGroup(page, base, [cut, helper]);
+  const selection = new ShapeRange([group]);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, selection, doc);
+  assert.ok(/Açılan grup: 0/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(doc.pages[1].Layers.Find("Kesim").Shapes.Count, 1);
+  assert.strictEqual(doc.pages[1].Layers.Find("Kesim").Shapes.Item(1).Type, 7);
+  assert.strictEqual(base.Shapes.Count, 0);
 });
 
 let failed = 0;

@@ -178,7 +178,7 @@ Covered scenarios:
 - repeated runs (idempotency)
 - equally spaced rows for long jobs
 - cleanup script
-- magenta cut separation (page and layer mode, spot colour, tolerance)
+- magenta cut separation (selection/page, layer mode, group support, exact colour match)
 
 ## 7. Adding a new OPOS variant
 
@@ -190,29 +190,50 @@ Covered scenarios:
 
 ## 8. Magenta cut separation
 
-`src/kesim-ayir.js` → `scripts/Summa-Kesim-Ayir.js`. It matches colours in the
-CorelDRAW object model:
+`src/kesim-ayir.js` → `scripts/Summa-Kesim-Ayir.js`. It works in the CorelDRAW
+object model and **adds OPOS XY regmarks first, then separates the cut lines**.
+
+Target area:
+
+- With a **selection**, the target is the selection's bounding box and only the
+  selected objects are separated.
+- Without a selection, the target is the page and the whole page is scanned.
+- The selection is read before and after the unit change; `ActiveSelection`,
+  `ActiveSelectionRange` and `Shape.Selected` are tried.
+
+Colour matching:
 
 - Fill: `Shape.Fill.Type === 1` (`cdrUniformFill`) and
-  `Fill.UniformColor.CMYKCyan/CMYKMagenta/CMYKYellow/CMYKBlack` (0–100) within
-  `tolerans` of `kesimCmyk`.
+  `Fill.UniformColor.CMYKCyan/CMYKMagenta/CMYKYellow/CMYKBlack` must match
+  `kesimCmyk` **exactly**.
 - Outline: `Shape.Outline.Type !== 0` and `Outline.Color` matched the same way.
-- Spot colour: if `Color.IsSpot` and `Color.SpotColorName` / `Color.Name`
-  contains one of `spotAdlari`, it is treated as a cut colour.
-- A mixed object (design fill + magenta outline) is skipped so the print content
-  is not lost.
-- Groups: if every leaf is a cut object the group is moved; if the colours are
-  mixed, it is skipped with a warning.
+- **No tolerance**: 99.9 or 90 magenta is not selected. A spot colour name alone
+  is not treated as a cut colour either.
+- A mixed object (design fill + magenta outline) is skipped.
+- Groups:
+  - A group is detected by `Shape.Type === cdrGroupShape (7)` or
+    `Shape.Shapes.Count > 0`.
+  - Invisible/helper leaves (no fill and no outline) are not counted.
+  - If every visible leaf is a cut object, the group is moved **intact**.
+  - A mixed group is ungrouped one level with `Shape.Ungroup()`; the children are
+    processed individually and the cut ones are moved.
+  - Groups containing a PowerClip are skipped for safety.
 
-Moving:
+Flow:
 
-- `yeniSayfa: true` → `Document.AddPagesEx(1, W, H)` creates a page of the same
-  size, `Page.CreateLayer("Kesim")` creates the layer, then
-  `Shape.MoveToLayer(layer)` moves the objects.
-- `yeniSayfa: false` → same page, `Kesim` layer.
-- After `MoveToLayer`, any `PositionX/Y` difference is corrected with
-  `Shape.Move(dx, dy)`, so the cut lines keep the exact coordinates of the print
-  page.
+1. Collect the cut objects before adding marks.
+2. `addMarks(page, true)` adds regmarks to page 1; the page grows if needed and
+   the content shifts by `frame`.
+3. With `yeniSayfa: true`, `Document.AddPagesEx(1, W, H)` creates page 2 at the
+   **new** size of page 1.
+4. `addMarks(page2, false)` adds regmarks around the **same target** on page 2;
+   the page is already expanded, so it is **not grown again**.
+5. The cut objects are moved to the `Kesim` layer with `MoveToLayer`; any
+   `PositionX/Y` difference is corrected with `Move`.
+
+This order keeps both pages the same size and in the same coordinate system;
+page 1 is the print file, page 2 the cut file. The regmarks are **OPOS XY**:
+4 squares + bottom line (no top line).
 
 ## 9. Limitations
 

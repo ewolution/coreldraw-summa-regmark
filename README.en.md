@@ -76,7 +76,7 @@ For a manual install, copy the `.js` files from `scripts/` into that folder.
 | `Summa-OPOS-X.js` | Cutter in OPOS **X** mode |
 | `Summa-OPOS-XY.js` | Cutter in OPOS **XY** mode |
 | `Summa-OPOS-XY2.js` | Cutter in OPOS **XY2** mode |
-| `Summa-Kesim-Ayir.js` | Separate magenta cut lines |
+| `Summa-Kesim-Ayir.js` | Add regmarks, then separate magenta cut lines |
 | `Summa-Regmark-Kaldir.js` | Remove the marks/layer |
 | `Summa-Test.js` | API/selection diagnostic |
 
@@ -162,36 +162,57 @@ Code and API details:
 
 ## Separating magenta cut lines
 
-`Summa-Kesim-Ayir.js` finds objects painted with exact **CMYK 0/100/0/0** (or a
-spot colour named `Cut`, `Kesim`, `Magenta`, `Kiss-cut`, `Thru-cut`) and
-separates them.
+`Summa-Kesim-Ayir.js` **adds OPOS XY registration marks first**, then separates
+lines painted with **exact CMYK 0/100/0/0**.
+
+- With a **selection**, only the selected objects are separated and the regmarks
+  are placed **around the selection**.
+- With **no selection**, the page is used.
+
+There is **no tolerance**: 99.9 or 90 magenta is not selected; the line must be
+exactly 0/100/0/0. A spot colour name (`Cut`, `Kesim`, etc.) alone is not enough.
 
 ```js
 var AYAR = {
-  kesimCmyk: [0, 100, 0, 0], // C, M, Y, K (0-100)
-  tolerans: 0.5,             // colour tolerance
-  spotAdlari: ["cut", "kesim", "magenta", "kiss-cut", "thru-cut"],
+  kesimCmyk: [0, 100, 0, 0], // exact match, no tolerance
   yeniSayfa: true,           // true: new page, false: "Kesim" layer on the same page
-  kesimKatmani: "Kesim"
+  kesimKatmani: "Kesim",
+
+  // OPOS regmarks (must match the OPOS scripts)
+  markaBoyutu: 3.0,
+  tasarimBosluk: 5.0,
+  sayfaKenari: 10.0,
+  markaAraligi: 300.0
+  // OPOS XY is fixed: 4 squares + bottom line
 };
 ```
 
-- `yeniSayfa: true` (default): creates a **new page** of the same size and moves
-  the cut lines there. Page 1 = print, page 2 = cut.
-- `yeniSayfa: false`: moves them to a **`Kesim` layer** on the same page. Hide
-  that layer for the print PDF and hide the design layers for the cut PDF.
+- `yeniSayfa: true` (default): page 1 = **print + regmarks**, page 2 =
+  **cut + regmarks**. Both pages have the same size.
+- `yeniSayfa: false`: a **`Kesim` layer** on the same page + regmarks. Hide that
+  layer for the print PDF and the design layers for the cut PDF.
+- In this flow the **`Regmark` layer is not locked**, so you can edit it at any time.
 
-### Workflow (new-page mode)
+### Workflow
 
-1. Run `Summa-Kesim-Ayir`.
-2. Go to page 1 and run `Summa-OPOS-*` **without a selection**.
-3. Go to page 2 and run the same `Summa-OPOS-*` **without a selection**.
-   Both pages grow by the same amount, so the coordinates stay aligned.
+1. **Select** the objects you want to separate (skip the selection for the whole page).
+2. Run `Summa-Kesim-Ayir`.
+3. Page 1 is the print file, page 2 the cut file; both already have OPOS XY regmarks.
 4. Export page 1 as the print PDF and page 2 as the cut PDF.
+
+You do not need to run the OPOS script separately; the separation script adds the
+marks to both pages.
 
 ### Limitations
 
-- **Ungroup first.** If a group contains a mix of colours, the script skips it.
+- Magnetas other than **exact 0/100/0/0** are not selected (no tolerance).
+- With a selection, only the selected objects are processed; without one, the
+  whole page.
+- The regmarks are OPOS **XY** (4 squares + bottom line); no top line.
+- **Groups are supported:** a group made entirely of cut-colour objects is moved
+  intact. A mixed group (design + cut) is ungrouped one level and its cut objects
+  are separated.
+- Groups containing a **PowerClip** are skipped for safety; ungroup them manually.
 - Magenta pixels inside **bitmaps** cannot be separated (only vector colours are
   inspected).
 - Objects with a **design fill + magenta outline** are skipped as mixed.
@@ -254,7 +275,7 @@ node tests/mock_coreldraw.js
 
 `tests/mock_coreldraw.js` mocks the CorelDRAW API and tests geometry, layer
 behaviour, selection geometry, long-job mark rows, lock handling, repeated
-runs and magenta cut separation (19/19 passing).
+runs and magenta cut separation (selection, page and group mode, 24/24 passing).
 
 ## License
 

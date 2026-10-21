@@ -73,7 +73,7 @@ Manuel kurulum isterseniz `scripts/` içindeki `.js` dosyalarını aynı klasör
 | `Summa-OPOS-X.js` | Kesici OPOS **X** modunda |
 | `Summa-OPOS-XY.js` | Kesici OPOS **XY** modunda |
 | `Summa-OPOS-XY2.js` | Kesici OPOS **XY2** modunda |
-| `Summa-Kesim-Ayir.js` | Magenta kesim çizgilerini ayırmak için |
+| `Summa-Kesim-Ayir.js` | Regmark ekleyip magenta kesim çizgilerini ayırmak için |
 | `Summa-Regmark-Kaldir.js` | İşaretleri/katmanı silmek için |
 | `Summa-Test.js` | Betikler çalışmıyorsa API kontrolü |
 
@@ -155,35 +155,55 @@ Kodun ve API kullanımının ayrıntıları:
 
 ## Magenta kesim çizgilerini ayırma
 
-`Summa-Kesim-Ayir.js`, tam **CMYK 0/100/0/0** (veya adı `Cut`, `Kesim`, `Magenta`,
-`Kiss-cut`, `Thru-cut` olan spot renk) ile boyanmış nesneleri bulur ve ayırır.
+`Summa-Kesim-Ayir.js` **önce OPOS XY regmarklarını ekler**, sonra
+**tam CMYK 0/100/0/0** magenta kesim çizgilerini ayırır.
+
+- **Seçim varsa** yalnızca seçili nesneler ayrılır ve regmarklar **seçimin
+  etrafına** eklenir.
+- **Seçim yoksa** sayfa baz alınır.
+
+Renk eşleşmesinde
+**tolerans yoktur**: 99.9 veya 90 magenta seçilmez; çizgi tam 0/100/0/0 olmalı.
+Spot renk adı (`Cut`, `Kesim` vb.) tek başına yeterli değildir.
 
 ```js
 var AYAR = {
-  kesimCmyk: [0, 100, 0, 0], // C, M, Y, K (0-100)
-  tolerans: 0.5,             // renk toleransı
-  spotAdlari: ["cut", "kesim", "magenta", "kiss-cut", "thru-cut"],
+  kesimCmyk: [0, 100, 0, 0], // tam eşleşme, tolerans yok
   yeniSayfa: true,           // true: 2. sayfa, false: aynı sayfada "Kesim" katmanı
-  kesimKatmani: "Kesim"
+  kesimKatmani: "Kesim",
+
+  // OPOS regmark (OPOS betikleriyle aynı olmalı)
+  markaBoyutu: 3.0,
+  tasarimBosluk: 5.0,
+  sayfaKenari: 10.0,
+  markaAraligi: 300.0
+  // OPOS XY sabittir: 4 kare + alt çizgi
 };
 ```
 
-- `yeniSayfa: true` (varsayılan): aynı boyutta **yeni bir sayfa** oluşturur ve
-  kesim çizgilerini oraya taşır. Sayfa 1 baskı, sayfa 2 kesim olur.
-- `yeniSayfa: false`: aynı sayfada **`Kesim` katmanına** taşır. Baskıda bu
+- `yeniSayfa: true` (varsayılan): sayfa 1 = **baskı + regmark**, sayfa 2 =
+  **kesim + regmark**. İki sayfa da aynı boyutta olur.
+- `yeniSayfa: false`: tek sayfada **`Kesim` katmanı** + regmark. Baskıda bu
   katmanı, kesimde tasarım katmanlarını kapatarak iki PDF üretirsiniz.
+- Bu akışta **`Regmark` katmanı kilitlenmez**; istediğiniz zaman düzenleyebilirsiniz.
 
-### İş akışı (yeni sayfa modu)
+### İş akışı
 
-1. `Summa-Kesim-Ayir` betiğini çalıştır.
-2. Sayfa 1'e geç, **seçim yapmadan** `Summa-OPOS-*` çalıştır.
-3. Sayfa 2'ye geç, **seçim yapmadan** aynı `Summa-OPOS-*` betiğini çalıştır.
-   Böylece iki sayfa da aynı miktarda büyür ve koordinatlar korunur.
+1. Ayırmak istediğin nesneleri **seç** (tüm sayfa için seçim yapma).
+2. `Summa-Kesim-Ayir` betiğini çalıştır.
+3. Sayfa 1 baskı, sayfa 2 kesim dosyasıdır; ikisinde de OPOS XY regmarkları hazırdır.
 4. Sayfa 1'i baskı PDF'i, sayfa 2'yi kesim PDF'i olarak ver.
+
+Regmarkları ayrıca çalıştırmanız gerekmez; ayırma betiği ikisini de ekler.
 
 ### Sınırlamalar
 
-- **Grupları önce çözün.** Grup içinde karışık renk varsa betik o grubu atlar.
+- **Tam 0/100/0/0** dışındaki magentalar seçilmez (tolerans yok).
+- Seçim varsa yalnızca seçili nesneler işlenir; seçim yoksa tüm sayfa.
+- Regmarklar OPOS **XY**'dir (4 kare + alt çizgi); üst çizgi eklenmez.
+- **Gruplar desteklenir:** tamamen kesim renginden oluşan grup bozulmadan taşınır.
+  Karışık grup (tasarım + kesim) bir seviye çözülür, kesim nesneleri ayrılır.
+- **PowerClip** içeren gruplar güvenlik için atlanır; elle çözülmelidir.
 - **Bitmap** içindeki magenta pikseller ayrılamaz (vektör renk taraması yapılır).
 - Aynı nesnede **baskı dolgusu + magenta kontur** varsa nesne atlanır (karışık).
 - `pdf-bicak` PDF içerik akışı seviyesinde çalışır; bu betik CorelDRAW **nesne**
@@ -241,7 +261,7 @@ node tests/mock_coreldraw.js
 ```
 
 `tests/mock_coreldraw.js`, CorelDRAW API'sini taklit ederek geometriyi, katman
-davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü, tekrar çalıştırmayı ve magenta kesim ayrımını test eder (19/19 geçer).
+davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü, tekrar çalıştırmayı ve magenta kesim ayrımını (seçim, sayfa ve grup modu) test eder (24/24 geçer).
 
 ## Lisans
 
