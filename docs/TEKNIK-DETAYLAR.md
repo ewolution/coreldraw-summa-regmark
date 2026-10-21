@@ -1,5 +1,7 @@
 # Teknik detaylar
 
+**Türkçe** | [English](technical-details.en.md)
+
 Bu belge, betiklerin nasıl üretildiğini, CorelDRAW API'sini nasıl kullandığını ve
 geometrinin nasıl hesaplandığını açıklar. Kullanıcı dokümanı için `README.md`,
 OPOS kuralları için `docs/OPOS-marka-yerlesimi.md` dosyasına bakın.

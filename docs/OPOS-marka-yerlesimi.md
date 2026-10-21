@@ -1,5 +1,7 @@
 # Summa OPOS işaret yerleşimi (uzun işler)
 
+**Türkçe** | [English](opos-mark-layout.en.md)
+
 Bu belge, `coreldraw-regmark` betiklerinin işaretleri nasıl yerleştirdiğini ve
 büyük/uzun işlerde neden ek marka satırları eklendiğini açıklar.
 

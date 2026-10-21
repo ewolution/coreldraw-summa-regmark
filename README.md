@@ -1,5 +1,7 @@
 # Summa OPOS Regmark · CorelDRAW macOS
 
+**Türkçe** | [English](README.en.md)
+
 CorelDRAW'ın **içinde** çalışan, Summa OPOS kayıt işaretlerini (regmark) **seçili objenin
 (seçim yoksa sayfanın)** etrafına ekleyen JavaScript betiği. Windows'taki Summa/GoSign eklentisi gibi; ama macOS'ta
 eklenti kurmadan.
@@ -145,10 +147,10 @@ sağ kenara **eşit aralıklı** ek marka satırları ekler.
 ![Uzun iş örneği](ornek/uzun-is-ornek.png)
 
 Ayrıntılı yerleşim, kesici ayarları ve kaynaklar:
-**[docs/OPOS-marka-yerlesimi.md](docs/OPOS-marka-yerlesimi.md)**
+**[docs/OPOS-marka-yerlesimi.md](docs/OPOS-marka-yerlesimi.md)** · [EN](docs/opos-mark-layout.en.md)
 
 Kodun ve API kullanımının ayrıntıları:
-**[docs/TEKNIK-DETAYLAR.md](docs/TEKNIK-DETAYLAR.md)**
+**[docs/TEKNIK-DETAYLAR.md](docs/TEKNIK-DETAYLAR.md)** · [EN](docs/technical-details.en.md)
 
 ## İş akışı notları
 
