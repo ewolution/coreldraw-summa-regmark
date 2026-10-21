@@ -23,7 +23,11 @@ var AYAR = {
   markaBoyutu: 3.0,
   tasarimBosluk: 5.0,
   sayfaKenari: 10.0,
-  markaAraligi: 300.0
+  markaAraligi: 300.0,
+
+  // Karisik nesneden kesime giden kopyanin kenar cizgisi kalinligi (mm).
+  // Orijinal kontur daha kalinsa o korunur.
+  kesimCizgiKalinligi: 0.5
 };
 
 (function () {
@@ -416,6 +420,17 @@ var AYAR = {
     return { rows: intervals + 1, spacing: rowStep, rect: rect };
   }
 
+  function shapeInfo(shape) {
+    var parts = [];
+    try { parts.push("Type=" + shape.Type); } catch (e) { /* ignore */ }
+    try { parts.push("Fill=" + shape.Fill.Type); } catch (e) { /* ignore */ }
+    try { parts.push("Outline=" + shape.Outline.Type); } catch (e) { /* ignore */ }
+    try { parts.push("Dolgu=" + shape.Fill.UniformColor.ToString()); } catch (e) { /* ignore */ }
+    try { parts.push("Kontur=" + shape.Outline.Color.ToString()); } catch (e) { /* ignore */ }
+    try { parts.push("Efekt=" + shape.Effects.Count); } catch (e) { /* ignore */ }
+    return parts.join(", ");
+  }
+
   // ---------------- main ----------------
 
   try {
@@ -458,6 +473,7 @@ var AYAR = {
     // Kesim nesnelerini regmark eklemeden ONCE topla.
     var targets = [];
     var mixed = 0;
+    var splitMixed = 0;
     var groupWarnings = 0;
     var groupsOpened = 0;
 
@@ -505,10 +521,50 @@ var AYAR = {
 
       var state = shapeState(shape);
       if (!state.cut) return;
+
+      // Karisik nesne: tasarim dolgusu + magenta kontur (veya tersi).
+      // Orijinali baskiya, kopyayi sadece kesim rengiyle kesime ayir.
       if (state.mixed) {
-        mixed++;
+        var copy = null;
+        try { copy = shape.Clone(); } catch (e) { copy = null; }
+        if (!copy) {
+          mixed++;
+          return;
+        }
+
+        if (state.outlineCut && !state.fillCut) {
+          // Kopyada ic seffaf, sadece KENAR CIZGISI (outline) magenta olsun.
+          try { copy.Fill.ApplyNoFill(); } catch (e2) { try { copy.Fill.Type = 0; } catch (e3) { /* ignore */ } }
+
+          // Kontur efekti varsa kopyada temizle; sadece outline kalsin.
+          try { copy.ClearEffect(); } catch (e4) { /* efekt yok / desteklenmiyor */ }
+
+          try {
+            var lineWidth = AYAR.kesimCizgiKalinligi;
+            try {
+              if (shape.Outline.Width > lineWidth) lineWidth = shape.Outline.Width;
+            } catch (e5) { /* ignore */ }
+            copy.Outline.Type = 1;
+            copy.Outline.Width = lineWidth;
+            copy.Outline.Color.CMYKAssign(
+              AYAR.kesimCmyk[0], AYAR.kesimCmyk[1],
+              AYAR.kesimCmyk[2], AYAR.kesimCmyk[3]
+            );
+          } catch (e6) { /* ignore */ }
+
+          // Orijinalde kontur kalmasin, dolgu kalsin.
+          try { shape.Outline.Type = 0; } catch (e7) { /* ignore */ }
+        } else {
+          // Kopyada sadece magenta dolgu; orijinalde kontur kalsin.
+          try { copy.Outline.Type = 0; } catch (e5) { /* ignore */ }
+          try { shape.Fill.ApplyNoFill(); } catch (e6) { /* ignore */ }
+        }
+
+        targets.push(copy);
+        splitMixed++;
         return;
       }
+
       targets.push(shape);
     }
 
@@ -520,16 +576,27 @@ var AYAR = {
       for (var li = 1; li <= page.Layers.Count; li++) {
         var sourceLayer = page.Layers.Item(li);
         if (sourceLayer.IsSpecialLayer) continue;
+
+        // Katman icerigi islem sirasinda degisebilir (clone/ungroup);
+        // bu yuzden once anlik liste al.
+        var layerShapes = [];
         for (var sh = 1; sh <= sourceLayer.Shapes.Count; sh++) {
-          considerShape(sourceLayer.Shapes.Item(sh));
+          layerShapes.push(sourceLayer.Shapes.Item(sh));
+        }
+        for (var lsi = 0; lsi < layerShapes.length; lsi++) {
+          considerShape(layerShapes[lsi]);
         }
       }
     }
 
     if (!targets.length) {
-      msg("Tam CMYK " + AYAR.kesimCmyk.join("/") + " kesim çizgisi bulunamadı.\n\n" +
-          (hasSelection ? "Seçili nesnelerde " : "") +
-          "Tolerans uygulanmaz; çizgi tam 0/100/0/0 olmalı.");
+      var notFound = "Tam CMYK " + AYAR.kesimCmyk.join("/") + " kesim çizgisi bulunamadı.\n\n" +
+                     (hasSelection ? "Seçili nesnelerde " : "") +
+                     "Tolerans uygulanmaz; çizgi tam 0/100/0/0 olmalı.";
+      if (hasSelection && selectedShapes.length) {
+        try { notFound += "\n\nSeçili nesne: " + shapeInfo(selectedShapes[0]); } catch (e5) { /* ignore */ }
+      }
+      msg(notFound);
       return;
     }
 
@@ -569,7 +636,8 @@ var AYAR = {
       "Regmark eklendi ve kesim ayrıldı.\n\n" +
       "Mod: " + (hasSelection ? "seçili nesneler" : "sayfa") + "\n" +
       "Taşınan nesne: " + targets.length + "\n" +
-      "Karışık (atlanan): " + mixed + "\n" +
+      "Karışık (ayrılan): " + splitMixed + "\n" +
+      "Atlanan: " + mixed + "\n" +
       "Açılan grup: " + groupsOpened + "\n" +
       "Hedef: " + (AYAR.yeniSayfa ? ("sayfa " + cutPage.Index) : "aynı sayfa") + "\n" +
       "Katman: " + AYAR.kesimKatmani + "\n" +

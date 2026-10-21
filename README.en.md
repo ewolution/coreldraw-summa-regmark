@@ -182,7 +182,10 @@ var AYAR = {
   markaBoyutu: 3.0,
   tasarimBosluk: 5.0,
   sayfaKenari: 10.0,
-  markaAraligi: 300.0
+  markaAraligi: 300.0,
+
+  // Outline width of the cut copy made from a mixed object (mm)
+  kesimCizgiKalinligi: 0.5
   // OPOS XY is fixed: 4 squares + bottom line
 };
 ```
@@ -215,7 +218,10 @@ marks to both pages.
 - Groups containing a **PowerClip** are skipped for safety; ungroup them manually.
 - Magenta pixels inside **bitmaps** cannot be separated (only vector colours are
   inspected).
-- Objects with a **design fill + magenta outline** are skipped as mixed.
+- Objects with a **design fill + magenta outline** are duplicated: the original
+  fill stays on page 1; the copy keeps a **transparent interior** and only its
+  **outline/stroke is magenta** on page 2. Contour effects are cleared on the
+  copy (e.g. text + magenta contour).
 - `pdf-bicak` works at the PDF content-stream level; this script works at the
   CorelDRAW **object** level. They complement each other for complex files.
 
@@ -275,7 +281,7 @@ node tests/mock_coreldraw.js
 
 `tests/mock_coreldraw.js` mocks the CorelDRAW API and tests geometry, layer
 behaviour, selection geometry, long-job mark rows, lock handling, repeated
-runs and magenta cut separation (selection, page and group mode, 24/24 passing).
+runs and magenta cut separation (selection, page, group and mixed fill/outline, 25/25 passing).
 
 ## License
 

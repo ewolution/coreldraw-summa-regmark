@@ -150,6 +150,7 @@ rowStep      = span / intervals
 | Drawing | `Layer.CreateRectangle(x0, y0, x1, y1)` |
 | Fill/outline | `Shape.Fill.UniformColor.CMYKAssign(...)`, `Shape.Outline.Type` |
 | Moving | `Shape.Move(dx, dy)`, `Shape.PositionX/Y` |
+| Duplicating | `Shape.Clone()`, `Fill.ApplyNoFill()` |
 | Locking | `Shape.Locked`, `Layer.Editable` |
 | Selection | `host.ActiveSelection`, `ShapeRange.BoundingBox`, `Shape.Selected` |
 
@@ -178,7 +179,7 @@ Covered scenarios:
 - repeated runs (idempotency)
 - equally spaced rows for long jobs
 - cleanup script
-- magenta cut separation (selection/page, layer mode, group support, exact colour match)
+- magenta cut separation (selection/page, layer, group, mixed fill/outline)
 
 ## 7. Adding a new OPOS variant
 
@@ -209,7 +210,14 @@ Colour matching:
 - Outline: `Shape.Outline.Type !== 0` and `Outline.Color` matched the same way.
 - **No tolerance**: 99.9 or 90 magenta is not selected. A spot colour name alone
   is not treated as a cut colour either.
-- A mixed object (design fill + magenta outline) is skipped.
+- A mixed object (design fill + magenta outline):
+  - `Shape.Clone()` creates a copy.
+  - The copy gets `Fill.ApplyNoFill()` (transparent interior), `ClearEffect()`
+    (contour effect removed) and `Outline.Type = 1` with magenta
+    (`CMYKAssign(0,100,0,0)`). The outline width is `kesimCizgiKalinligi`
+    (default 0.5 mm) or the thicker of the original. The original gets
+    `Outline.Type = 0` (the fill remains).
+  - The copy moves to the cut page; the original stays on the print page.
 - Groups:
   - A group is detected by `Shape.Type === cdrGroupShape (7)` or
     `Shape.Shapes.Count > 0`.

@@ -46,7 +46,11 @@ class Shape {
     this.cmyk = null;
     this.Type = 0;
     this.PowerClip = null;
-    this.Fill = { Type: 0, UniformColor: new Color(this) };
+    this.Fill = {
+      Type: 0,
+      UniformColor: new Color(this),
+      ApplyNoFill: () => { this.Fill.Type = 0; }
+    };
     this.Outline = { Type: 0, Width: 0.2, Color: new Color(this) };
   }
   fillCMYK(c, m, y, k) {
@@ -78,6 +82,32 @@ class Shape {
   noOutline() {
     this.Outline.Type = 0;
     return this;
+  }
+  Clone() {
+    const copy = new Shape(this.page, this.x0, this.y0, this.x1, this.y1);
+    copy.Type = this.Type;
+
+    copy.Fill.Type = this.Fill.Type;
+    copy.Fill.UniformColor.CMYKCyan = this.Fill.UniformColor.CMYKCyan;
+    copy.Fill.UniformColor.CMYKMagenta = this.Fill.UniformColor.CMYKMagenta;
+    copy.Fill.UniformColor.CMYKYellow = this.Fill.UniformColor.CMYKYellow;
+    copy.Fill.UniformColor.CMYKBlack = this.Fill.UniformColor.CMYKBlack;
+    copy.Fill.UniformColor.IsSpot = this.Fill.UniformColor.IsSpot;
+    copy.Fill.UniformColor.SpotColorName = this.Fill.UniformColor.SpotColorName;
+
+    copy.Outline.Type = this.Outline.Type;
+    copy.Outline.Width = this.Outline.Width;
+    copy.Outline.Color.CMYKCyan = this.Outline.Color.CMYKCyan;
+    copy.Outline.Color.CMYKMagenta = this.Outline.Color.CMYKMagenta;
+    copy.Outline.Color.CMYKYellow = this.Outline.Color.CMYKYellow;
+    copy.Outline.Color.CMYKBlack = this.Outline.Color.CMYKBlack;
+    copy.Outline.Color.IsSpot = this.Outline.Color.IsSpot;
+    copy.Outline.Color.SpotColorName = this.Outline.Color.SpotColorName;
+
+    const layer = this.page.layers.find((item) => item.Shapes.items.includes(this));
+    if (layer) layer.Shapes.add(copy);
+    this.page.allShapes.push(copy);
+    return copy;
   }
   Ungroup() {
     if (!this.children) throw new Error("Shape is not a group");
@@ -570,12 +600,16 @@ test("kesim ayir: once regmark, sonra yeni sayfaya ayirma", () => {
 
   const cutLayer = page2.Layers.Find("Kesim");
   assert.ok(cutLayer, "Kesim katmani olusmali");
-  assert.strictEqual(cutLayer.Shapes.Count, 2);
+  assert.strictEqual(cutLayer.Shapes.Count, 3, "2 kesim + karisik kopya");
   assert.deepStrictEqual(cut.rect(), [28, 28, 98, 58], "kesim konumu korunmali");
   assert.deepStrictEqual(fillCut.rect(), [48, 28, 68, 38]);
-  assert.strictEqual(base.Shapes.Count, 2, "tasarim ve karisik nesne page1'de kalir");
-  assert.ok(/Taşınan nesne: 2/.test(alerts[0]), alerts[0]);
-  assert.ok(/Karışık \(atlanan\): 1/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(base.Shapes.Count, 2, "tasarim ve karisik orijinal page1'de kalir");
+  assert.ok(/Taşınan nesne: 3/.test(alerts[0]), alerts[0]);
+  assert.ok(/Karışık \(ayrılan\): 1/.test(alerts[0]), alerts[0]);
+  assert.strictEqual(mixed.Outline.Type, 0, "orijinalde magenta kontur kalmamali");
+  const mixedCopy = cutLayer.Shapes.Item(3);
+  assert.strictEqual(mixedCopy.Fill.Type, 0, "kopyada dolgu olmamali (seffaf ic)");
+  assert.strictEqual(mixedCopy.Outline.Type, 1, "kopyada magenta kontur olmali");
 });
 
 test("kesim ayir: katman modunda regmark + Kesim katmani", () => {
@@ -738,6 +772,35 @@ test("kesim ayir: gorunmez yardimci nesne grubu bozmaz", () => {
   assert.strictEqual(doc.pages[1].Layers.Find("Kesim").Shapes.Count, 1);
   assert.strictEqual(doc.pages[1].Layers.Find("Kesim").Shapes.Item(1).Type, 7);
   assert.strictEqual(base.Shapes.Count, 0);
+});
+
+test("kesim ayir: yazi dolgusu + magenta kontur ayrilir", () => {
+  const page = makePage(200, 200, false);
+  const base = page.layers[0];
+  const text = base.CreateRectangle(50, 50, 120, 80)
+    .fillCMYK(0, 0, 0, 100)
+    .outlineCMYK(0, 100, 0, 0);
+  const selection = new ShapeRange([text]);
+  const doc = new Document(page);
+
+  const alerts = run("Summa-Kesim-Ayir.js", page, selection, doc);
+  assert.ok(/Karışık \(ayrılan\): 1/.test(alerts[0]), alerts[0]);
+  assert.ok(/Taşınan nesne: 1/.test(alerts[0]), alerts[0]);
+
+  assert.strictEqual(base.Shapes.Count, 1, "orijinal page1'de kalmali");
+  assert.strictEqual(text.Fill.Type, 1, "orijinalde dolgu korunmali");
+  assert.strictEqual(text.Outline.Type, 0, "orijinalde magenta kontur kaldirilmali");
+
+  const cutLayer = doc.pages[1].Layers.Find("Kesim");
+  assert.strictEqual(cutLayer.Shapes.Count, 1);
+  const copy = cutLayer.Shapes.Item(1);
+  assert.strictEqual(copy.Fill.Type, 0, "kesim kopyasinda dolgu olmamali (seffaf ic)");
+  assert.strictEqual(copy.Outline.Type, 1, "kesim kopyasinda kontur olmali");
+  assert.deepStrictEqual(
+    [copy.Outline.Color.CMYKCyan, copy.Outline.Color.CMYKMagenta, copy.Outline.Color.CMYKYellow, copy.Outline.Color.CMYKBlack],
+    [0, 100, 0, 0],
+    "kopya konturu tam magenta olmali"
+  );
 });
 
 let failed = 0;

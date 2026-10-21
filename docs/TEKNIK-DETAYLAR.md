@@ -147,6 +147,7 @@ rowStep      = span / intervals
 | Şekil çizme | `Layer.CreateRectangle(x0, y0, x1, y1)` |
 | Dolgu/kontur | `Shape.Fill.UniformColor.CMYKAssign(...)`, `Shape.Outline.Type` |
 | Taşıma | `Shape.Move(dx, dy)`, `Shape.PositionX/Y` |
+| Kopyalama | `Shape.Clone()`, `Fill.ApplyNoFill()` |
 | Kilit | `Shape.Locked`, `Layer.Editable` |
 | Seçim | `host.ActiveSelection`, `ShapeRange.BoundingBox`, `Shape.Selected` |
 
@@ -175,7 +176,7 @@ Kapsanan senaryolar:
 - Tekrar çalıştırma (idempotency)
 - Uzun işlerde eşit aralıklı satırlar
 - Temizleme betiği
-- Magenta kesim ayrımı (seçim/sayfa, katman modu, grup desteği, tam renk eşleşmesi)
+- Magenta kesim ayrımı (seçim/sayfa, katman, grup, karışık dolgu/kontur)
 
 ## 7. Yeni bir OPOS varyantı eklemek
 
@@ -206,7 +207,13 @@ Renk eşleştirmesi:
 - Kontur: `Shape.Outline.Type !== 0` ve `Outline.Color` aynı şekilde tam eşleşir.
 - **Tolerans yoktur**; 99.9 veya 90 magenta seçilmez. Spot renk adı da tek
   başına kesim sayılmaz.
-- Karışık nesne (tasarım dolgusu + magenta kontur) atlanır.
+- Karışık nesne (tasarım dolgusu + magenta kontur):
+  - `Shape.Clone()` ile kopya alınır.
+  - Kopyada `Fill.ApplyNoFill()` (iç şeffaf), `ClearEffect()` (kontur efekti
+    temizlenir) ve `Outline.Type = 1` + magenta renk yapılır. Kenar çizgisi
+    kalınlığı `kesimCizgiKalinligi` (varsayılan 0.5 mm) veya orijinalden kalın
+    olanıdır. Orijinalde `Outline.Type = 0` (dolgu kalır).
+  - Kopya kesim sayfasına taşınır; orijinal baskı sayfasında kalır.
 - Gruplar:
   - Grup, `Shape.Type === cdrGroupShape (7)` veya `Shape.Shapes.Count > 0` ile
     tanınır.

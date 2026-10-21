@@ -176,7 +176,10 @@ var AYAR = {
   markaBoyutu: 3.0,
   tasarimBosluk: 5.0,
   sayfaKenari: 10.0,
-  markaAraligi: 300.0
+  markaAraligi: 300.0,
+
+  // Karışık nesneden kesime giden kopyanın kenar çizgisi kalınlığı (mm)
+  kesimCizgiKalinligi: 0.5
   // OPOS XY sabittir: 4 kare + alt çizgi
 };
 ```
@@ -205,7 +208,10 @@ Regmarkları ayrıca çalıştırmanız gerekmez; ayırma betiği ikisini de ekl
   Karışık grup (tasarım + kesim) bir seviye çözülür, kesim nesneleri ayrılır.
 - **PowerClip** içeren gruplar güvenlik için atlanır; elle çözülmelidir.
 - **Bitmap** içindeki magenta pikseller ayrılamaz (vektör renk taraması yapılır).
-- Aynı nesnede **baskı dolgusu + magenta kontur** varsa nesne atlanır (karışık).
+- Aynı nesnede **baskı dolgusu + magenta kontur** varsa nesne kopyalanır:
+  orijinal dolgu sayfa 1'de kalır; kopyanın **içi şeffaf**, sadece **kenar
+  çizgisi (outline)** magenta olur. Kontur efekti kopyada temizlenir
+  (ör. yazı + magenta kontur).
 - `pdf-bicak` PDF içerik akışı seviyesinde çalışır; bu betik CorelDRAW **nesne**
   seviyesinde çalışır. Karmaşık PDF'ler için ikisi tamamlayıcıdır.
 
@@ -261,7 +267,7 @@ node tests/mock_coreldraw.js
 ```
 
 `tests/mock_coreldraw.js`, CorelDRAW API'sini taklit ederek geometriyi, katman
-davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü, tekrar çalıştırmayı ve magenta kesim ayrımını (seçim, sayfa ve grup modu) test eder (24/24 geçer).
+davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü, tekrar çalıştırmayı ve magenta kesim ayrımını (seçim, sayfa, grup ve karışık dolgu/kontur) test eder (25/25 geçer).
 
 ## Lisans
 
