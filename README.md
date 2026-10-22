@@ -1,19 +1,21 @@
-# Summa OPOS Regmark · CorelDRAW macOS
+# Summa OPOS Regmark · CorelDRAW (macOS + Windows)
 
 **Türkçe** | [English](README.en.md)
 
 CorelDRAW'ın **içinde** çalışan, Summa OPOS kayıt işaretlerini (regmark) **seçili objenin
-(seçim yoksa sayfanın)** etrafına ekleyen JavaScript betiği. Windows'taki Summa/GoSign eklentisi gibi; ama macOS'ta
-eklenti kurmadan.
+(seçim yoksa sayfanın)** etrafına ekleyen JavaScript betiği. macOS ve Windows'ta, Summa/GoSign
+eklentisi kurmadan çalışır.
 
 ![Örnek yerleşim](ornek/regmark-ornek.png)
 
 ## Neden eklenti değil?
 
 Summa'nın CorelDRAW eklentisi Windows'a özgüdür (COM/VBA bileşenleri). CorelDRAW'ın
-macOS sürümü bu eklentileri yükleyemez. Ancak CorelDRAW macOS, **JavaScript** ile
-otomasyonu destekler (`Window > Inspectors > Scripts`). Bu betikler o ortam için
-yazıldı ve işaretleri doğrudan belgenin içine, vektörel olarak çizer.
+macOS sürümü bu eklentileri yükleyemez. Ancak CorelDRAW'ın **hem macOS hem Windows**
+sürümü **JavaScript** ile otomasyonu destekler (macOS: `Window > Inspectors > Scripts`,
+Windows: `Tools > Scripts > Scripts`). Bu betikler o ortam için yazıldı ve işaretleri
+doğrudan belgenin içine, vektörel olarak çizer. Windows'ta Summa eklentisi kurulu olsa
+bile bu betikler bağımsız çalışır.
 
 ## Ne yapar?
 
@@ -40,7 +42,26 @@ Varsayılan ölçüler:
 
 ## Kurulum
 
-### Klonlayarak
+### Windows
+
+1. [Releases](https://github.com/ewolution/coreldraw-summa-regmark/releases/latest)
+   sayfasından `Summa-OPOS-Regmark-Windows-<sürüm>.zip` dosyasını indirin.
+2. ZIP'e **sağ tıklayın → Tümünü ayıkla** (ZIP içinden çalıştırmayın).
+3. **`Kur.bat`** dosyasına **çift tıklayın**.
+4. Windows “korunan bilgisayar” uyarısı verirse: **Ek bilgi → Yine de çalıştır**.
+5. CorelDRAW'ı yeniden başlatın.
+
+```
+%APPDATA%\Corel\CorelDRAW Graphics Suite 2026\Draw\Scripts\
+```
+
+Yönetici hakkı gerekmez. Ayrıntılar, elle kurulum ve sorun giderme:
+**[docs/WINDOWS-KURULUM.md](docs/WINDOWS-KURULUM.md)** ·
+[EN](docs/windows-install.en.md)
+
+### macOS
+
+#### Klonlayarak
 
 ```bash
 git clone https://github.com/ewolution/coreldraw-summa-regmark.git
@@ -48,7 +69,7 @@ cd coreldraw-summa-regmark
 ./Kur.command
 ```
 
-### ZIP / klasör olarak
+#### ZIP / klasör olarak
 
 1. `Kur.command` dosyasına **çift tıklayın**.
 2. macOS “geliştirici doğrulanamadı” derse: dosyaya **sağ tıklayın → Aç**.
@@ -58,13 +79,19 @@ cd coreldraw-summa-regmark
 ~/Library/Application Support/Corel/CorelDRAW Graphics Suite 2026/Draw/Scripts/
 ```
 
-Manuel kurulum isterseniz `scripts/` içindeki `.js` dosyalarını aynı klasöre kopyalayın.
+### Manuel kurulum
+
+`scripts/` içindeki altı `.js` dosyasını yukarıdaki platforma ait `Draw/Scripts`
+klasörüne kopyalayın. Windows'ta `%APPDATA%` yolunu Gezgin'in adres çubuğuna
+yazabilirsiniz.
 
 ## Kullanım
 
 1. CorelDRAW'da belgenizi açın (önce kaydedin).
-2. **Window > Inspectors > Scripts**
-   (Türkçe arayüzde: **Pencere > Denetçiler > Komut Dosyaları**).
+2. Scripts panelini açın:
+   - **Windows:** **Tools > Scripts > Scripts** (Alt+Shift+F11)
+   - **macOS:** **Window > Inspectors > Scripts**
+   (Türkçe arayüzde: **Araçlar > Komut Dosyaları** / **Pencere > Denetçiler > Komut Dosyaları**).
 3. Solda **JavaScript > User Scripts** seçin.
 4. İşinize uygun olanı çift tıklayın:
 
@@ -81,6 +108,14 @@ Betik çalışınca bir özet penceresi açılır (sayfa boyutu, kesim alanı, m
 
 > Scripts listesinde betikler görünmüyorsa CorelDRAW'ı kapatıp açın. Yine yoksa
 > Scripts panelindeki **Load** ile `.../Draw/Scripts` klasörünü bir kez gösterin.
+
+## Kaldırma
+
+- **Windows:** `Kaldir.bat` dosyasına çift tıklayın.
+- **macOS:** `Kaldir.command` dosyasına çift tıklayın.
+
+Sonra CorelDRAW'ı yeniden başlatın. Yedekler Windows'ta
+`%LOCALAPPDATA%\SummaRegmark\backup\` altında tutulur.
 
 ## Ayarları değiştirme
 
@@ -102,8 +137,10 @@ var AYAR = {
 };
 ```
 
-Dosyayı TextEdit ile açıp değerleri değiştirin, kaydedin, betiği yeniden çalıştırın.
-`Kur.command` ile yeniden kurmak gerekmez; dosya doğrudan Scripts klasöründedir.
+Dosyayı bir metin düzenleyiciyle (macOS: TextEdit, Windows: Not Defteri) açıp
+değerleri değiştirin, UTF-8 olarak kaydedin, betiği yeniden çalıştırın.
+`Kur.command` / `Kur.bat` ile yeniden kurmak gerekmez; dosya doğrudan Scripts
+klasöründedir.
 
 **Önemli:** `markaBoyutu` ve `oposTipi`, kesicinin OPOS ayarlarıyla birebir aynı olmalı.
 Yanlış boyut/mod, kesicinin işaretleri bulamamasına yol açar.
@@ -244,6 +281,9 @@ Regmarkları ayrıca çalıştırmanız gerekmez; ayırma betiği ikisini de ekl
 | Belirti | Çözüm |
 |---|---|
 | Betikler listede yok | CorelDRAW'ı yeniden başlatın; **Load** ile Scripts klasörünü gösterin |
+| `Kur.bat` açılıp hemen kapanıyor (Windows) | Komut isteminde `Kur.bat` çalıştırın; hata mesajı görünür kalır |
+| “Windows korumalı bilgisayarınızı korudu” | **Ek bilgi → Yine de çalıştır** |
+| Windows'ta betikler görünmüyor | CorelDRAW'ı yeniden başlatın; **Load** ile `%APPDATA%\Corel\...\Draw\Scripts` gösterin |
 | “Açık bir belge yok” | Önce bir `.cdr` dosyası açın |
 | “Sayfa çok küçük” | Ölçüleri küçültün veya daha büyük sayfa kullanın |
 | “Kilitli nesne/katman var” | Katman/nesne kilitlerini açın veya `sayfaBuyut: false` yapın |
@@ -252,6 +292,8 @@ Regmarkları ayrıca çalıştırmanız gerekmez; ayırma betiği ikisini de ekl
 | Sayfa büyümedi | `sayfaBuyut` değeri `true` mu? `Regmark` katmanı zaten varsa sayfa tekrar büyümez |
 | Kesici işaretleri bulamıyor | Marka boyutu/mod kesiciyle aynı mı? Yeterli beyaz alan var mı? Baskı %100 mü? |
 | İşaretler yanlış yerde | `tasarimBosluk` ve `sayfaKenari` değerlerini kontrol edin |
+
+Windows'a özgü ayrıntılı sorun giderme: **[docs/WINDOWS-KURULUM.md](docs/WINDOWS-KURULUM.md)**.
 
 ## Geliştirme / test
 
@@ -265,6 +307,15 @@ src/regmark.template.js   →  tools/build.py  →  scripts/*.js
 python3 tools/build.py
 node tests/mock_coreldraw.js
 ```
+
+Windows dağıtım paketi:
+
+```powershell
+powershell -File tools/package-windows.ps1 -Version 1.1.0
+```
+
+`dist\Summa-OPOS-Regmark-Windows-<sürüm>.zip` üretir; GitHub Release'e bu dosya
+eklenir.
 
 `tests/mock_coreldraw.js`, CorelDRAW API'sini taklit ederek geometriyi, katman
 davranışını, seçim geometrisini, uzun iş marka satırlarını, kilit kontrolünü, tekrar çalıştırmayı ve magenta kesim ayrımını (seçim, sayfa, grup ve karışık dolgu/kontur) test eder (25/25 geçer).

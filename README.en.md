@@ -1,20 +1,22 @@
-# Summa OPOS Regmark · CorelDRAW macOS
+# Summa OPOS Regmark · CorelDRAW (macOS + Windows)
 
 [Türkçe](README.md) | **English**
 
 A JavaScript script that runs **inside** CorelDRAW and places Summa OPOS
 registration marks around the **selected object** (or the page if nothing is
-selected). It is the macOS equivalent of the Windows Summa/GoSign plug-in,
-without installing a plug-in.
+selected). It works on **macOS and Windows** without installing the Summa/GoSign
+plug-in.
 
 ![Example layout](ornek/regmark-ornek.png)
 
 ## Why not a plug-in?
 
 Summa's CorelDRAW plug-in is Windows-only (COM/VBA components). CorelDRAW for
-macOS cannot load these plug-ins. However, CorelDRAW macOS supports automation
-through **JavaScript** (`Window > Inspectors > Scripts`). These scripts target
-that environment and draw the marks directly into the document as vectors.
+macOS cannot load these plug-ins. However, **both** the macOS and Windows
+editions of CorelDRAW support automation through **JavaScript** (macOS:
+`Window > Inspectors > Scripts`; Windows: `Tools > Scripts > Scripts`). These
+scripts target that environment and draw the marks directly into the document as
+vectors. On Windows they work independently of any installed Summa plug-in.
 
 ## What it does
 
@@ -43,7 +45,26 @@ Defaults:
 
 ## Installation
 
-### Clone
+### Windows
+
+1. Download `Summa-OPOS-Regmark-Windows-<version>.zip` from
+   [Releases](https://github.com/ewolution/coreldraw-summa-regmark/releases/latest).
+2. **Right-click → Extract All** (do not run it from inside the ZIP).
+3. **Double-click `Kur.bat`**.
+4. If Windows SmartScreen appears, choose **More info → Run anyway**.
+5. Restart CorelDRAW.
+
+```
+%APPDATA%\Corel\CorelDRAW Graphics Suite 2026\Draw\Scripts\
+```
+
+No administrator rights are required. Manual install, enterprise deployment and
+troubleshooting: **[docs/windows-install.en.md](docs/windows-install.en.md)** ·
+[TR](docs/WINDOWS-KURULUM.md)
+
+### macOS
+
+#### Clone
 
 ```bash
 git clone https://github.com/ewolution/coreldraw-summa-regmark.git
@@ -51,7 +72,7 @@ cd coreldraw-summa-regmark
 ./Kur.command
 ```
 
-### ZIP / folder
+#### ZIP / folder
 
 1. **Double-click** `Kur.command`.
 2. If macOS says the developer cannot be verified: **right-click → Open**.
@@ -61,13 +82,17 @@ cd coreldraw-summa-regmark
 ~/Library/Application Support/Corel/CorelDRAW Graphics Suite 2026/Draw/Scripts/
 ```
 
-For a manual install, copy the `.js` files from `scripts/` into that folder.
+### Manual install
+
+Copy the six `.js` files from `scripts/` into the `Draw/Scripts` folder for your
+platform. On Windows you can paste `%APPDATA%` into the Explorer address bar.
 
 ## Usage
 
 1. Open your document in CorelDRAW (save it first).
-2. **Window > Inspectors > Scripts**
-   (Turkish UI: **Pencere > Denetçiler > Komut Dosyaları**).
+2. Open the Scripts panel:
+   - **Windows:** **Tools > Scripts > Scripts** (Alt+Shift+F11)
+   - **macOS:** **Window > Inspectors > Scripts**
 3. Select **JavaScript > User Scripts** on the left.
 4. Double-click the script that matches your cutter:
 
@@ -85,6 +110,14 @@ count, row count and spacing). The script's dialog texts are in Turkish.
 
 > If the scripts are not listed, restart CorelDRAW. If they are still missing,
 > use **Load** in the Scripts panel and point it to `.../Draw/Scripts` once.
+
+## Uninstall
+
+- **Windows:** double-click `Kaldir.bat`.
+- **macOS:** double-click `Kaldir.command`.
+
+Then restart CorelDRAW. On Windows, backups are kept in
+`%LOCALAPPDATA%\SummaRegmark\backup\`.
 
 ## Changing the settings
 
@@ -106,8 +139,9 @@ var AYAR = {
 };
 ```
 
-Edit the file in TextEdit, save it and run the script again. You do not need to
-run `Kur.command` again; the file in the Scripts folder is used directly.
+Edit the file in a text editor (TextEdit on macOS, Notepad on Windows), save it
+as UTF-8 and run the script again. You do not need to re-run
+`Kur.command` / `Kur.bat`; the file in the Scripts folder is used directly.
 
 **Important:** `markaBoyutu` and `oposTipi` must match the cutter's OPOS
 settings exactly. A wrong size or mode means the cutter will not find the marks.
@@ -257,6 +291,9 @@ marks to both pages.
 | Symptom | Fix |
 |---|---|
 | Scripts are not listed | Restart CorelDRAW; use **Load** to point at the Scripts folder |
+| `Kur.bat` closes instantly (Windows) | Run `Kur.bat` from a Command Prompt so the error stays visible |
+| “Windows protected your PC” | **More info → Run anyway** |
+| Scripts missing on Windows | Restart CorelDRAW; use **Load** and point it to `%APPDATA%\Corel\...\Draw\Scripts` |
 | “No open document” | Open a `.cdr` file first |
 | “Page too small” | Reduce the measurements or use a larger page |
 | “Locked object/layer” | Unlock the layers/objects or set `sayfaBuyut: false` |
@@ -265,6 +302,8 @@ marks to both pages.
 | Page did not grow | Is `sayfaBuyut` `true`? If a `Regmark` layer already exists, the page is not grown again |
 | Cutter cannot find the marks | Same mark size/mode as the cutter? Enough white space? Is the print at 100%? |
 | Marks in the wrong place | Check `tasarimBosluk` and `sayfaKenari` |
+
+Windows-specific troubleshooting: **[docs/windows-install.en.md](docs/windows-install.en.md)**.
 
 ## Development / tests
 
@@ -278,6 +317,15 @@ src/regmark.template.js   →  tools/build.py  →  scripts/*.js
 python3 tools/build.py
 node tests/mock_coreldraw.js
 ```
+
+Windows distribution package:
+
+```powershell
+powershell -File tools/package-windows.ps1 -Version 1.1.0
+```
+
+It produces `dist\Summa-OPOS-Regmark-Windows-<version>.zip`, which is attached to
+the GitHub release.
 
 `tests/mock_coreldraw.js` mocks the CorelDRAW API and tests geometry, layer
 behaviour, selection geometry, long-job mark rows, lock handling, repeated

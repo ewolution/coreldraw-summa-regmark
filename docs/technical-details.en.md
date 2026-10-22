@@ -17,8 +17,12 @@ scripts/                  Generated scripts installed into CorelDRAW
 tests/mock_coreldraw.js   Test harness that mocks the CorelDRAW API
 docs/                     OPOS layout and this technical document
 ornek/                    Example layout images
-Kur.command               Copies the scripts into CorelDRAW Scripts folders
-Kaldir.command            Removes the scripts
+Kur.command               Copies the scripts into CorelDRAW Scripts folders (macOS)
+Kaldir.command            Removes the scripts (macOS)
+Kur.bat                   Windows installer launcher
+Kaldir.bat                Windows uninstaller launcher
+tools/install-windows.ps1 Windows install/uninstall logic (PowerShell)
+tools/package-windows.ps1 Builds the Windows release ZIP
 ```
 
 Do not edit the generated scripts by hand; edit `src/regmark.template.js` and
@@ -34,7 +38,7 @@ produce three scripts, so the geometry code lives in one place.
 
 ## 2. CorelDRAW JavaScript environment
 
-CorelDRAW's macOS JavaScript engine is not a browser:
+CorelDRAW's JavaScript engine (macOS and Windows) is not a browser:
 
 - The API is accessed through the global `host` object: `host.ActiveDocument`,
   `host.ActivePage`, `host.ActiveSelection`.

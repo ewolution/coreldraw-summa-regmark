@@ -17,8 +17,12 @@ scripts/                  CorelDRAW'a kurulan üretilmiş betikler
 tests/mock_coreldraw.js   CorelDRAW API'sini taklit eden test ortamı
 docs/                     OPOS yerleşimi ve bu teknik belge
 ornek/                    Örnek yerleşim görselleri
-Kur.command               Betikleri CorelDRAW Scripts klasörlerine kopyalar
-Kaldir.command            Betikleri kaldırır
+Kur.command               Betikleri CorelDRAW Scripts klasörlerine kopyalar (macOS)
+Kaldir.command            Betikleri kaldırır (macOS)
+Kur.bat                   Windows kurulum başlatıcısı
+Kaldir.bat                Windows kaldırma başlatıcısı
+tools/install-windows.ps1 Windows kurulum/kaldırma mantığı (PowerShell)
+tools/package-windows.ps1 Windows Release ZIP'ini üretir
 ```
 
 Betikler elle düzenlenmez; `src/regmark.template.js` düzenlenip yeniden üretilir:
@@ -33,7 +37,7 @@ değiştirerek üç betik üretir. Böylece geometri kodu tek yerde kalır.
 
 ## 2. CorelDRAW JavaScript ortamı
 
-CorelDRAW'ın macOS JavaScript motoru tarayıcı değildir:
+CorelDRAW'ın JavaScript motoru (macOS ve Windows) tarayıcı değildir:
 
 - Global `host` nesnesi üzerinden API'ye erişilir: `host.ActiveDocument`,
   `host.ActivePage`, `host.ActiveSelection`.
