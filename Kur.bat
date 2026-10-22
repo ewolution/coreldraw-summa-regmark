@@ -4,7 +4,7 @@ rem Copies the JavaScript scripts into CorelDRAW's user Scripts folder.
 setlocal
 title Summa OPOS Regmark - Kurulum
 chcp 65001 >nul
-cd /d "%~dp0"
+pushd "%~dp0"
 
 where powershell.exe >nul 2>nul
 if errorlevel 1 (
@@ -18,6 +18,7 @@ if errorlevel 1 (
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\install-windows.ps1" %*
 set "RC=%ERRORLEVEL%"
+popd
 
 echo.
 pause

@@ -4,7 +4,7 @@ rem Removes the Summa-*.js scripts from CorelDRAW's user Scripts folder.
 setlocal
 title Summa OPOS Regmark - Kaldirma
 chcp 65001 >nul
-cd /d "%~dp0"
+pushd "%~dp0"
 
 where powershell.exe >nul 2>nul
 if errorlevel 1 (
@@ -18,6 +18,7 @@ if errorlevel 1 (
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\install-windows.ps1" -Uninstall %*
 set "RC=%ERRORLEVEL%"
+popd
 
 echo.
 pause
