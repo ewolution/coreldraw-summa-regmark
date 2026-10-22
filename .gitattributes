@@ -1,0 +1,16 @@
+* text=auto
+
+# Windows betikleri CRLF ile gelmeli (Notepad / cmd.exe uyumu)
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# macOS ve JavaScript dosyalari LF
+*.command text eol=lf
+*.js text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+.gitattributes text eol=lf
+
+*.png binary
+*.zip binary

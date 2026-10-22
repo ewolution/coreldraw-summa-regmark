@@ -4,3 +4,4 @@
 scripts/.tmp-*.js
 __pycache__/
 .venv/
+dist/
