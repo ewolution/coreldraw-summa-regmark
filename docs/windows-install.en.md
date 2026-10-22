@@ -248,7 +248,7 @@ source, etc.).
 ```bash
 python tools/build.py                      # regenerate scripts/*.js from the template
 node tests/mock_coreldraw.js               # 25/25 tests
-powershell -File tools/package-windows.ps1 -Version 1.1.0   # dist/*.zip
+powershell -File tools/package-windows.ps1 -Version 1.4.0   # dist/*.zip
 ```
 
 The Windows package is produced as

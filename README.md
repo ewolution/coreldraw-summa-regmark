@@ -311,7 +311,7 @@ node tests/mock_coreldraw.js
 Windows dağıtım paketi:
 
 ```powershell
-powershell -File tools/package-windows.ps1 -Version 1.1.0
+powershell -File tools/package-windows.ps1 -Version 1.4.0
 ```
 
 `dist\Summa-OPOS-Regmark-Windows-<sürüm>.zip` üretir; GitHub Release'e bu dosya

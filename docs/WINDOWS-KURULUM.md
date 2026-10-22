@@ -254,7 +254,7 @@ dosya vb.).
 ```bash
 python tools/build.py                      # şablondan scripts/*.js üretir
 node tests/mock_coreldraw.js               # 25/25 test
-powershell -File tools/package-windows.ps1 -Version 1.1.0   # dist/*.zip
+powershell -File tools/package-windows.ps1 -Version 1.4.0   # dist/*.zip
 ```
 
 Windows paketi `dist\Summa-OPOS-Regmark-Windows-<sürüm>.zip` olarak üretilir ve
